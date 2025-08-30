@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  coturn:
+    image: coturn/coturn # or another suitable CoTURN Docker image
+    container_name: coturn
+    network_mode: host # Recommended for CoTURN due to port allocation
+    volumes:
+      - ./turnserver.conf:/etc/coturn/turnserver.conf:ro # Mount your CoTURN configuration
+      # - ./certs:/etc/coturn/certs:ro # Uncomment and configure if using TLS/SSL certificates
+    environment:
+      # Optional environment variables for basic configuration if not using turnserver.conf
+      # - PUBLIC_IP=your_public_ip_address
+      # - REALM=your_domain.com
+      # - STATIC_AUTH_SECRET=your_secret
+    restart: always # Ensures CoTURN restarts with the Docker host
