@@ -9,7 +9,22 @@ services:
       # - ./certs:/etc/coturn/certs:ro # Uncomment and configure if using TLS/SSL certificates
     environment:
       # Optional environment variables for basic configuration if not using turnserver.conf
-      # - PUBLIC_IP=your_public_ip_address
-      # - REALM=your_domain.com
-      # - STATIC_AUTH_SECRET=your_secret
+      PUBLIC_IP: "${HOST_IP:-127.0.0.1}"
+      REALM: "${HOST_IP:-127.0.0.1}"
     restart: always # Ensures CoTURN restarts with the Docker host
+
+  signaling:
+    image: oven/bun:latest
+    container_name: signaling
+    working_dir: /app
+    volumes:
+      - ./apps/signaling:/app
+    ports:
+      - "3000:3000"
+    command: ["bun", "run", "dev"]
+    restart: always
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "3000"
+    depends_on:
+      - coturn

@@ -1,5 +1,6 @@
 {
   "name": "signaling",
+  "description": "Environment-agnostic WebRTC signaling code",
   "module": "index.ts",
   "type": "module",
   "scripts": {

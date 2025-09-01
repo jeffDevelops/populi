@@ -48,6 +48,7 @@ user=riftuser:riftpass
 min-port=49152
 max-port=65535
 verbose
+no-loopback-peers
 EOF
 fi
 
@@ -57,18 +58,23 @@ if ! command -v docker-compose &> /dev/null; then
   exit 1
 fi
 
-# Start the signaling server directly with Bun for visible logs
-echo "Starting signaling server with Bun..."
-echo "You'll see the signaling server logs below. Press Ctrl+C to stop."
+# Start all services with Docker Compose
+echo "Starting all services with Docker Compose..."
 echo "To run the iOS simulators, open another terminal and run:"
 echo "  ./launch-multi-ios.sh [num_instances] [boot_simulators] [sequential] false"
 echo ""
 echo "Starting services in 3 seconds..."
 sleep 3
 
-# Start Docker Compose services in the background
-echo "Starting CoTURN server with Docker Compose..."
-docker-compose up -d coturn
-
-# Start the signaling server with Bun in the foreground
-cd signaling && bun run dev
+# Option to run in background or foreground
+if [ "$1" == "-d" ] || [ "$1" == "--detach" ]; then
+  echo "Starting services in detached mode..."
+  docker-compose up -d
+  echo "Services started in the background."
+  echo "To view logs: docker-compose logs -f"
+  echo "To stop services: docker-compose down"
+else
+  echo "Starting services in foreground mode..."
+  echo "Press Ctrl+C to stop all services."
+  docker-compose up
+fi
