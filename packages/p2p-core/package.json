@@ -12,7 +12,6 @@
     }
   },
   "devDependencies": {
-    "@repo/typescript-config": "workspace:*",
     "typescript": "latest"
   }
 }

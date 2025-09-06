@@ -5,7 +5,7 @@
   "identifier": "com.antarcticbloom.rift",
   "build": {
     "beforeDevCommand": "bun run dev",
-    "devUrl": "http://localhost:5020",
+    "devUrl": "http://localhost:5060",
     "beforeBuildCommand": "bun run build",
     "frontendDist": "../build"
   },
