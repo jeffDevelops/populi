@@ -35,11 +35,22 @@ describe('Parameter Parsing Tests', () => {
       // For parameter validation tests, we expect some errors - don't log them as noise
       const isValidationTest =
         command.includes('not-a-number') || command.includes('InvalidParam')
-      const execError = error as { stdout?: string; stderr?: string; message?: string; status?: number }
+      const execError = error as {
+        stdout?: string
+        stderr?: string
+        message?: string
+        status?: number
+      }
       return {
         success: false,
-        output: execError.stdout || execError.stderr || execError.message || 'Unknown error',
-        error: isValidationTest ? 'Expected validation error' : execError.message || 'Unknown error',
+        output:
+          execError.stdout ||
+          execError.stderr ||
+          execError.message ||
+          'Unknown error',
+        error: isValidationTest
+          ? 'Expected validation error'
+          : execError.message || 'Unknown error',
         exitCode: execError.status,
       }
     }
@@ -62,10 +73,19 @@ describe('Parameter Parsing Tests', () => {
       })
       return { success: true, output }
     } catch (error: unknown) {
-      const execError = error as { stdout?: string; stderr?: string; message?: string; status?: number }
+      const execError = error as {
+        stdout?: string
+        stderr?: string
+        message?: string
+        status?: number
+      }
       return {
         success: false,
-        output: execError.stdout || execError.stderr || execError.message || 'Unknown error',
+        output:
+          execError.stdout ||
+          execError.stderr ||
+          execError.message ||
+          'Unknown error',
         error: execError.message || 'Unknown error',
         exitCode: execError.status,
       }

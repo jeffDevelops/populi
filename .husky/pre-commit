@@ -8,5 +8,6 @@ bun run check-types
 # Run fast unit tests only (skip slow integration/e2e tests)
 bun run test:scripts:unit
 
-# Format code
+# Format code and stage any changes
 bun run format
+git add -A

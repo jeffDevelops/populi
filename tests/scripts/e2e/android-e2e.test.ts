@@ -36,7 +36,10 @@ vi.mock('child_process', async () => {
         return mockExecSync(command, options)
       }
       // Call actual execSync for other commands
-      return (actual as typeof import('child_process')).execSync(command, options as Parameters<typeof import('child_process').execSync>[1])
+      return (actual as typeof import('child_process')).execSync(
+        command,
+        options as Parameters<typeof import('child_process').execSync>[1],
+      )
     }),
   }
 })
@@ -108,13 +111,13 @@ describe('Android Script Integration Tests', () => {
       // Test parameter validation for Android emulators
       const validEmulatorNames = ['Pixel_7_API_34', 'Galaxy_S24_API_34']
       const validInstanceIds = [1, 2, 3]
-      
-      validEmulatorNames.forEach(name => {
+
+      validEmulatorNames.forEach((name) => {
         expect(name).toMatch(/^[A-Za-z0-9_]+$/)
         expect(name.length).toBeGreaterThan(0)
       })
-      
-      validInstanceIds.forEach(id => {
+
+      validInstanceIds.forEach((id) => {
         expect(id).toBeGreaterThan(0)
         expect(id).toBeLessThanOrEqual(10)
       })

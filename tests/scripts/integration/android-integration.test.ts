@@ -31,10 +31,18 @@ describe('Android Integration Tests', () => {
         },
       })
     } catch (error: unknown) {
-      const execError = error as { stdout?: string; stderr?: string; message?: string }
+      const execError = error as {
+        stdout?: string
+        stderr?: string
+        message?: string
+      }
       return {
         error: true,
-        output: execError.stdout || execError.stderr || execError.message || 'Unknown error',
+        output:
+          execError.stdout ||
+          execError.stderr ||
+          execError.message ||
+          'Unknown error',
       }
     }
   }
@@ -69,8 +77,17 @@ describe('Android Integration Tests', () => {
         },
       })
     } catch (error: unknown) {
-      const execError = error as { stdout?: string; stderr?: string; message?: string }
-      return execError.stdout || execError.stderr || execError.message || 'Unknown error'
+      const execError = error as {
+        stdout?: string
+        stderr?: string
+        message?: string
+      }
+      return (
+        execError.stdout ||
+        execError.stderr ||
+        execError.message ||
+        'Unknown error'
+      )
     }
   }
 
