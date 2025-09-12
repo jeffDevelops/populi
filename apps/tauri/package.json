@@ -10,7 +10,7 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "check-types": "svelte-check --tsconfig ./tsconfig.json",
-    "lint": "echo 'No linting configured for Tauri app'",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
     "tauri": "tauri"
   },
   "license": "MIT",

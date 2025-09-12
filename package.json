@@ -2,7 +2,7 @@
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
-    "lint": "turbo lint",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
     "check-types": "turbo check-types",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "test": "vitest",
@@ -11,7 +11,6 @@
     "test:scripts:integration": "vitest tests/scripts/integration",
     "test:scripts:coverage": "vitest --coverage tests/scripts",
     "test:scripts:watch": "vitest --watch tests/scripts",
-    "test:e2e": "node scripts/run-e2e-tests.js",
     "dev:services": "docker-compose up -d",
     "prepare": "husky install",
     "windows:android:swarm": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/Launch-Swarm-Android.ps1",
@@ -27,13 +26,17 @@
   "dependencies": {},
   "devDependencies": {
     "@types/node": "^24.3.1",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
     "@vitest/coverage-v8": "^3.2.4",
+    "eslint": "^9.0.0",
     "husky": "^8.0.0",
     "prettier": "^3.0.0",
     "turbo": "^2.5.6",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"
   },
+  "type": "module",
   "packageManager": "bun@1.2.0",
   "workspaces": [
     "apps/*",

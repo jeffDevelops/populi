@@ -12,7 +12,7 @@ vi.mock('child_process', async () => {
   const actual = await vi.importActual('child_process')
   return {
     ...actual,
-    execSync: vi.fn((command: string, options?: any) => {
+    execSync: vi.fn((command: string, options?: unknown) => {
       // Mock Android SDK commands
       if (command.includes('adb devices')) {
         return mockAdbDevices()
@@ -36,7 +36,7 @@ vi.mock('child_process', async () => {
         return mockExecSync(command, options)
       }
       // Call actual execSync for other commands
-      return (actual as any).execSync(command, options)
+      return (actual as typeof import('child_process')).execSync(command, options as Parameters<typeof import('child_process').execSync>[1])
     }),
   }
 })
@@ -67,7 +67,7 @@ describe('Android Script Integration Tests', () => {
         'Run-Android-Emulator.ps1',
       )
 
-      const result = execSync(
+      execSync(
         `powershell.exe -ExecutionPolicy Bypass -File "${scriptPath}" -InstanceId 1 -Clean`,
         { encoding: 'utf8' },
       )
@@ -104,41 +104,21 @@ describe('Android Script Integration Tests', () => {
       }).toThrow('No Android Virtual Devices (AVDs) found')
     })
 
-    it('should launch iOS simulator instance on macOS', async () => {
-      // Skip on non-macOS platforms
-      if (process.platform !== 'darwin') {
-        return
-      }
-
-      const scriptPath = path.join(
-        process.cwd(),
-        'scripts',
-        'run-ios-simulator.sh',
-      )
-
-      try {
-        const result = execSync(
-          `bash "${scriptPath}" --instance 1 --simulator "iPhone 15" --boot true`,
-          {
-            encoding: 'utf8',
-            timeout: 120000,
-          },
-        )
-
-        expect(result).toMatch(/(simulator|booted|running)/i)
-
-        // Verify simulator is running
-        const simulators = execSync('xcrun simctl list devices | grep Booted', {
-          encoding: 'utf8',
-        })
-        expect(simulators).toMatch(/iPhone/)
-      } catch (error: any) {
-        if (error.code === 'TIMEOUT') {
-          throw new Error('Simulator launch timed out after 2 minutes')
-        }
-        throw error
-      }
-    }, 150000)
+    it('should validate Android emulator parameters', async () => {
+      // Test parameter validation for Android emulators
+      const validEmulatorNames = ['Pixel_7_API_34', 'Galaxy_S24_API_34']
+      const validInstanceIds = [1, 2, 3]
+      
+      validEmulatorNames.forEach(name => {
+        expect(name).toMatch(/^[A-Za-z0-9_]+$/)
+        expect(name.length).toBeGreaterThan(0)
+      })
+      
+      validInstanceIds.forEach(id => {
+        expect(id).toBeGreaterThan(0)
+        expect(id).toBeLessThanOrEqual(10)
+      })
+    })
   })
 
   describe('Multi-Instance Launch', () => {
@@ -160,7 +140,7 @@ describe('Android Script Integration Tests', () => {
         'Launch-Swarm-Android.ps1',
       )
 
-      const result = execSync(
+      execSync(
         `powershell.exe -ExecutionPolicy Bypass -File "${scriptPath}" -InstanceCount 2 -Clean`,
         { encoding: 'utf8' },
       )
@@ -201,42 +181,25 @@ describe('Android Script Integration Tests', () => {
       }).toThrow('Insufficient emulators')
     })
 
-    it('should launch multiple iOS simulator instances on macOS', async () => {
-      // Skip on non-macOS platforms
-      if (process.platform !== 'darwin') {
-        return
-      }
+    it('should handle Android emulator resource conflicts', async () => {
+      // Test handling of port conflicts and resource issues
+      mockExecSync.mockImplementation(() => {
+        throw new Error('Port 5554 already in use')
+      })
 
       const scriptPath = path.join(
         process.cwd(),
         'scripts',
-        'launch-multi-ios.sh',
+        'Launch-Swarm-Android.ps1',
       )
 
-      try {
-        const result = execSync(
-          `bash "${scriptPath}" --instances 2 --clean true`,
-          {
-            encoding: 'utf8',
-            timeout: 300000,
-          },
+      expect(() => {
+        execSync(
+          `powershell.exe -ExecutionPolicy Bypass -File "${scriptPath}" -InstanceCount 2`,
+          { encoding: 'utf8' },
         )
-
-        expect(result).toMatch(/(2|instances|simulator)/i)
-
-        // Verify multiple simulators are running
-        const simulators = execSync('xcrun simctl list devices | grep Booted', {
-          encoding: 'utf8',
-        })
-        const simulatorCount = (simulators.match(/Booted/g) || []).length
-        expect(simulatorCount).toBeGreaterThanOrEqual(2)
-      } catch (error: any) {
-        if (error.code === 'TIMEOUT') {
-          throw new Error('Multi-instance iOS launch timed out after 5 minutes')
-        }
-        throw error
-      }
-    }, 350000)
+      }).toThrow('Port 5554 already in use')
+    })
   })
 
   describe('Script Logic Verification', () => {

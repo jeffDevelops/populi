@@ -30,10 +30,11 @@ describe('Android Integration Tests', () => {
           DOCKER_CLI_HINTS: 'false', // Suppress Docker hints
         },
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const execError = error as { stdout?: string; stderr?: string; message?: string }
       return {
         error: true,
-        output: error.stdout || error.stderr || error.message,
+        output: execError.stdout || execError.stderr || execError.message || 'Unknown error',
       }
     }
   }
@@ -67,8 +68,9 @@ describe('Android Integration Tests', () => {
           PATH: testEnv?.binDir + path.delimiter + process.env.PATH,
         },
       })
-    } catch (error: any) {
-      return error.stdout || error.stderr || error.message
+    } catch (error: unknown) {
+      const execError = error as { stdout?: string; stderr?: string; message?: string }
+      return execError.stdout || execError.stderr || execError.message || 'Unknown error'
     }
   }
 

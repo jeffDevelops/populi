@@ -1,17 +1,60 @@
 # PowerShell script to launch a swarm of Tauri app instances on Windows separate Windows terminals
-# Usage: .\Launch-Swarm-Windows.ps1 -NumberOfInstances 3 -Clean $true -Sequential $false] [StartServices]
+# Usage: .\Launch-Swarm-Windows.ps1 -NumberOfInstances 3 -Sequential $false -StartServices $false -PreserveExistingProcesses $false
 # If Sequential is $true, will run one instance at a time instead of in parallel
 # If StartServices is $true, will start Docker Compose services before launching instances
+# If PreserveExistingProcesses is $true, will not terminate existing Tauri processes before launching new ones
 
 param(
     [int]$NumberOfInstances = 2,
     [bool]$Sequential = $false,
-    [bool]$StartServices = $false
+    [bool]$StartServices = $false,
+    [bool]$PreserveExistingProcesses = $false
 )
 
-# Note: This script preserves existing processes by default
-
 Write-Host "Launching $NumberOfInstances Tauri Windows instances in separate terminal windows..." -ForegroundColor Green
+
+# Function to find existing Tauri processes
+function Get-ExistingTauriProcesses {
+    try {
+        # Look for propopulo.exe processes (the renamed Tauri app)
+        $TauriProcesses = Get-Process -Name "propopulo" -ErrorAction SilentlyContinue
+        if ($TauriProcesses) {
+            return $TauriProcesses
+        }
+        
+        # Also check for any processes with "tauri" in the name as fallback
+        $AllProcesses = Get-Process | Where-Object { $_.ProcessName -like "*tauri*" -or $_.MainWindowTitle -like "*Tauri*" }
+        return $AllProcesses
+    }
+    catch {
+        Write-Host "Warning: Could not check for existing processes: $($_.Exception.Message)" -ForegroundColor Yellow
+        return @()
+    }
+}
+
+# Handle existing processes
+$ExistingProcesses = Get-ExistingTauriProcesses
+if ($ExistingProcesses.Count -gt 0) {
+    Write-Host "Found $($ExistingProcesses.Count) existing Tauri process(es)" -ForegroundColor Yellow
+    
+    if ($PreserveExistingProcesses) {
+        Write-Host "Preserving existing processes as requested" -ForegroundColor Green
+    } else {
+        Write-Host "Terminating existing processes to prevent conflicts..." -ForegroundColor Yellow
+        foreach ($Process in $ExistingProcesses) {
+            try {
+                Write-Host "Stopping process: $($Process.ProcessName) (PID: $($Process.Id))" -ForegroundColor Cyan
+                $Process.Kill()
+                $Process.WaitForExit(5000)  # Wait up to 5 seconds
+            }
+            catch {
+                Write-Host "Warning: Could not stop process $($Process.ProcessName): $($_.Exception.Message)" -ForegroundColor Yellow
+            }
+        }
+        # Give processes time to fully terminate
+        Start-Sleep -Seconds 2
+    }
+}
 
 # Function to generate a unique title for each terminal window
 function Get-WindowTitle {
@@ -86,6 +129,7 @@ $HostIP = Get-HostIP
 Write-Host "Starting $NumberOfInstances Windows instances..." -ForegroundColor Green
 Write-Host "Sequential mode: $Sequential" -ForegroundColor Yellow
 Write-Host "Start services: $StartServices" -ForegroundColor Yellow
+Write-Host "Preserve existing processes: $PreserveExistingProcesses" -ForegroundColor Yellow
 Write-Host "Host IP address: $HostIP" -ForegroundColor Yellow
 
 # Start Docker Compose services if requested
