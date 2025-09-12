@@ -15,6 +15,7 @@ trigger: always_on
 - When solutions require WebRTC, please walk me through the code line-by-line and explain the logic of the code
 - All server side JavaScript code is to be written in TypeScript with Bun APIs, not Node.js APIs
 - All client side JavaScript code is to be written in TypeScript with Svelte 5 and SvelteKit. If you are unsure about how to implement something, look at Svelte 5's documentation. Do not write solutions in Svelte 4, or any other previous versions of Svelte.
+- All test code that would be written in JavaScript should be instead written in TypeScript
 - All package manager code and scripts are to use Bun; do not use npm, yarn, or pnpm
 - My client-side testing setup is based on Vitest and Svelte Testing Library
 
@@ -53,5 +54,3 @@ trigger: always_on
 - Prefer immutability for data:
 - Use readonly for immutable properties.
 - Use as const for literals that never change.
-
-

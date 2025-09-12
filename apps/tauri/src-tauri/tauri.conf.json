@@ -1,18 +1,18 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "rift",
+  "productName": "propopulo",
   "version": "0.1.0",
-  "identifier": "com.antarcticbloom.rift",
+  "identifier": "com.example.propopulo",
   "build": {
     "beforeDevCommand": "bun run dev",
-    "devUrl": "http://localhost:5020",
     "beforeBuildCommand": "bun run build",
-    "frontendDist": "../build"
+    "frontendDist": "../build",
+    "devUrl": "http://0.0.0.0:1420"
   },
   "app": {
     "windows": [
       {
-        "title": "rift",
+        "title": "propopulo",
         "width": 800,
         "height": 600
       }
@@ -30,6 +30,14 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "android": {
+      "minSdkVersion": 24
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": false
+    }
   }
 }

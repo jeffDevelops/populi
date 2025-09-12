@@ -1,5 +1,5 @@
-# PowerShell script to launch multiple instances of the Tauri app in separate Windows terminals
-# Usage: .\Launch-Multi-Windows.ps1 [NumberOfInstances] [Sequential] [StartServices]
+# PowerShell script to launch a swarm of Tauri app instances on Windows separate Windows terminals
+# Usage: .\Launch-Swarm-Windows.ps1 -NumberOfInstances 3 -Clean $true -Sequential $false] [StartServices]
 # If Sequential is $true, will run one instance at a time instead of in parallel
 # If StartServices is $true, will start Docker Compose services before launching instances
 
@@ -9,8 +9,7 @@ param(
     [bool]$StartServices = $false
 )
 
-# Set to true to preserve existing processes (don't shut them down)
-$PreserveExistingProcesses = $true
+# Note: This script preserves existing processes by default
 
 Write-Host "Launching $NumberOfInstances Tauri Windows instances in separate terminal windows..." -ForegroundColor Green
 
@@ -22,8 +21,8 @@ function Get-WindowTitle {
     return "Tauri Windows Instance #$InstanceId"
 }
 
-# Function to launch a terminal window with the Tauri app
-function Launch-TerminalWindow {
+# Function to start a terminal window with the Tauri app
+function Start-TerminalWindow {
     param(
         [int]$InstanceId
     )
@@ -122,16 +121,18 @@ verbose
     }
     
     # Start Docker Compose services
+    Push-Location $PSScriptRoot\..
     docker-compose up -d
+    Pop-Location
     
     # Wait for services to start
     Write-Host "Waiting for services to start..." -ForegroundColor Yellow
     Start-Sleep -Seconds 5
 }
 
-# First, build the app once to cache dependencies
-Write-Host "Building app once first to cache dependencies..." -ForegroundColor Green
-$TauriAppPath = Join-Path $PSScriptRoot "apps\tauri"
+# Clean old build artifacts to prevent conflicts with renamed project
+Write-Host "Cleaning old build artifacts to prevent conflicts..." -ForegroundColor Green
+$TauriAppPath = Join-Path $PSScriptRoot "..\apps\tauri"
 Push-Location $TauriAppPath
 
 # Clean Vite cache to prevent dependency errors
@@ -142,49 +143,34 @@ if (Test-Path $ViteCachePath) {
     Write-Host "Vite cache cleaned." -ForegroundColor Green
 }
 
-# Build the app for Windows
-Write-Host "Building Tauri app for Windows..." -ForegroundColor Cyan
-try {
-    # Check if we're running from within WSL or from Windows PowerShell
-    $IsRunningFromWSL = $env:WSL_DISTRO_NAME -ne $null
-    $IsAccessingWSLPath = $PSScriptRoot -like "*wsl.localhost*"
-    
-    if ($IsRunningFromWSL) {
-        Write-Host "Running from within WSL, using direct commands..." -ForegroundColor Yellow
-        # We're inside WSL, use direct commands
-        if (Test-Path "bun.lockb") {
-            bun run tauri build
-        } elseif (Test-Path "package-lock.json") {
-            npm run tauri build
-        } else {
-            bun run tauri build
-        }
-    } elseif ($IsAccessingWSLPath) {
-        Write-Host "Accessing WSL path from Windows, using WSL commands..." -ForegroundColor Yellow
-        # We're in Windows PowerShell accessing WSL files
-        if (Test-Path "bun.lockb") {
-            wsl bun run tauri build
-        } elseif (Test-Path "package-lock.json") {
-            wsl npm run tauri build
-        } else {
-            wsl bun run tauri build
-        }
-    } else {
-        Write-Host "Using native Windows commands..." -ForegroundColor Yellow
-        # Native Windows environment
-        if (Test-Path "bun.lockb") {
-            bun run tauri build
-        } elseif (Test-Path "package-lock.json") {
-            npm run tauri build
-        } else {
-            bun run tauri build
+# Clean old Rust build artifacts (especially old rift.exe)
+Write-Host "Cleaning old Rust build artifacts..." -ForegroundColor Cyan
+$TargetPath = Join-Path $TauriAppPath "src-tauri\target"
+if (Test-Path $TargetPath) {
+    try {
+        # Try to remove the entire target directory
+        Remove-Item -Path $TargetPath -Recurse -Force
+        Write-Host "Old target directory cleaned successfully." -ForegroundColor Green
+    }
+    catch {
+        Write-Host "Warning: Could not fully clean target directory. Trying to remove specific files..." -ForegroundColor Yellow
+        # Try to remove specific problematic files
+        $DebugPath = Join-Path $TargetPath "debug"
+        if (Test-Path $DebugPath) {
+            Get-ChildItem -Path $DebugPath -Filter "rift*" -File | ForEach-Object {
+                try {
+                    Remove-Item -Path $_.FullName -Force
+                    Write-Host "Removed old file: $($_.Name)" -ForegroundColor Green
+                }
+                catch {
+                    Write-Host "Warning: Could not remove $($_.Name): $($_.Exception.Message)" -ForegroundColor Yellow
+                }
+            }
         }
     }
-    Write-Host "Initial build completed. Now launching instances..." -ForegroundColor Green
 }
-catch {
-    Write-Warning "Build failed, but continuing with instances. Error: $($_.Exception.Message)"
-}
+
+Write-Host "Build artifact cleanup completed. Each instance will build in its own isolated directory." -ForegroundColor Green
 
 Pop-Location
 
@@ -197,7 +183,7 @@ for ($i = 1; $i -le $NumberOfInstances; $i++) {
         Write-Host "Instance $i completed. Moving to next instance..." -ForegroundColor Green
     } else {
         Write-Host "Launching instance $i in new terminal window..." -ForegroundColor Yellow
-        Launch-TerminalWindow -InstanceId $i
+        Start-TerminalWindow -InstanceId $i
         
         # Add a short delay between instances to prevent resource contention
         Write-Host "Waiting for 5 seconds before launching the next instance..." -ForegroundColor Cyan

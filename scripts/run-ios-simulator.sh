@@ -1,17 +1,52 @@
 #!/bin/bash
 
 # Script to run a Tauri app on an iOS simulator with dynamic port configuration
-# Usage: ./run-ios-simulator.sh [instance_id] [simulator_name] [boot_simulator]
+# Usage: ./run-ios-simulator.sh --instance 1 --simulator "iPhone 15" --boot true
+# Supports both named parameters and positional arguments for backward compatibility
 
 # Enable verbose output
 set -x
 
-# Default to instance 1 if not specified
-INSTANCE_ID=${1:-1}
-# Default simulator name (can be overridden by second parameter)
-SIMULATOR_NAME=${2:-"iPhone 15"}
-# Whether to boot the simulator (default: true)
-BOOT_SIMULATOR=${3:-true}
+# Default values
+INSTANCE_ID=1
+SIMULATOR_NAME=""
+BOOT_SIMULATOR=true
+
+# Parse named parameters
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --instance|--InstanceId)
+      INSTANCE_ID="$2"
+      shift 2
+      ;;
+    --simulator|--SimulatorName)
+      SIMULATOR_NAME="$2"
+      shift 2
+      ;;
+    --boot|--BootSimulator)
+      BOOT_SIMULATOR="$2"
+      shift 2
+      ;;
+    -*)
+      echo "Unknown option $1"
+      exit 1
+      ;;
+    *)
+      # Handle positional arguments for backward compatibility
+      if [[ -z "$INSTANCE_SET" ]]; then
+        INSTANCE_ID="$1"
+        INSTANCE_SET=true
+      elif [[ -z "$SIMULATOR_SET" ]]; then
+        SIMULATOR_NAME="$1"
+        SIMULATOR_SET=true
+      elif [[ -z "$BOOT_SET" ]]; then
+        BOOT_SIMULATOR="$1"
+        BOOT_SET=true
+      fi
+      shift
+      ;;
+  esac
+done
 
 # Print initial status immediately
 echo "Starting Tauri iOS simulator instance $INSTANCE_ID with:"

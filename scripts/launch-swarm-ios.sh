@@ -1,21 +1,57 @@
 #!/bin/bash
 
-# Script to launch multiple instances of the Tauri app in separate iOS simulators
-# Usage: ./launch-multi-ios.sh [number_of_instances] [boot_simulators] [sequential] [start_services]
-# If sequential is set to true, will run one instance at a time instead of in parallel
-# If start_services is set to true, will start Docker Compose services before launching simulators
+# Script to launch a swarm of iOS simulator instances of the Tauri app in separate iOS simulators
+# Usage: ./launch-swarm-ios.sh [instances] [boot_simulators] [sequential] [start_services] true
+# Supports both named parameters and positional arguments for backward compatibility
 
-# Default to 2 instances if not specified
-NUM_INSTANCES=${1:-2}
+# Default values
+NUM_INSTANCES=2
+CLEAN=true
+SEQUENTIAL=false
+START_SERVICES=false
 
-# Default to booting simulators, but allow skipping if already booted
-BOOT_SIMULATORS=${2:-true}
-
-# Default to parallel execution, but allow sequential if specified
-SEQUENTIAL=${3:-false}
-
-# Default to NOT starting Docker Compose services (so user can run them separately to see logs)
-START_SERVICES=${4:-false}
+# Parse named parameters
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --instances|--NumberOfInstances)
+      NUM_INSTANCES="$2"
+      shift 2
+      ;;
+    --clean|--Clean)
+      CLEAN="$2"
+      shift 2
+      ;;
+    --sequential|--Sequential)
+      SEQUENTIAL="$2"
+      shift 2
+      ;;
+    --services|--StartServices)
+      START_SERVICES="$2"
+      shift 2
+      ;;
+    -*)
+      echo "Unknown option $1"
+      exit 1
+      ;;
+    *)
+      # Handle positional arguments for backward compatibility
+      if [[ -z "$INSTANCES_SET" ]]; then
+        NUM_INSTANCES="$1"
+        INSTANCES_SET=true
+      elif [[ -z "$CLEAN_SET" ]]; then
+        CLEAN="$1"
+        CLEAN_SET=true
+      elif [[ -z "$SEQUENTIAL_SET" ]]; then
+        SEQUENTIAL="$1"
+        SEQUENTIAL_SET=true
+      elif [[ -z "$SERVICES_SET" ]]; then
+        START_SERVICES="$1"
+        SERVICES_SET=true
+      fi
+      shift
+      ;;
+  esac
+done
 
 # Set to true to preserve existing simulators (don't shut them down)
 PRESERVE_EXISTING_SIMULATORS=true
@@ -76,7 +112,7 @@ tell application "iTerm"
   tell current window
     tell current session
       set name to "$title"
-      write text "cd '$(pwd)' && '$script_path' $instance_id '$simulator_name' $BOOT_SIMULATORS"
+      write text "cd '$(pwd)' && '$script_path' --instance $instance_id --simulator '$simulator_name' --boot $CLEAN"
     end tell
   end tell
 end tell
@@ -85,7 +121,7 @@ EOF
     # Launch with Terminal.app
     osascript <<EOF
 tell application "Terminal"
-  do script "cd '$(pwd)' && '$script_path' $instance_id '$simulator_name' $BOOT_SIMULATORS"
+  do script "cd '$(pwd)' && '$script_path' --instance $instance_id --simulator '$simulator_name' --boot $CLEAN"
   tell window 1
     set custom title to "$title"
   end tell
@@ -124,7 +160,7 @@ HOST_IP=$(get_host_ip)
 
 # Main script execution starts here
 echo "Starting $NUM_INSTANCES iOS simulator instances..."
-echo "Boot simulators: $BOOT_SIMULATORS"
+echo "Clean existing: $CLEAN"
 echo "Sequential mode: $SEQUENTIAL"
 echo "Start services: $START_SERVICES"
 echo "Host IP address: $HOST_IP"
@@ -159,7 +195,9 @@ EOF
   fi
   
   # Start Docker Compose services
+  cd "$(dirname "$0")/.." || exit 1
   docker-compose up -d
+  cd - > /dev/null
   
   # Wait for services to start
   echo "Waiting for services to start..."
@@ -219,7 +257,7 @@ boot_simulator_with_retry() {
 }
 
 # If running in parallel mode, pre-boot all the simulators we'll need
-if [ "$SEQUENTIAL" = false ] && [ "$BOOT_SIMULATORS" = true ]; then
+if [ "$SEQUENTIAL" = false ] && [ "$CLEAN" = true ]; then
   echo "Pre-booting all required simulators for parallel execution..."
   
   # First, check for any existing running simulators if we want to preserve them
@@ -330,12 +368,12 @@ for i in $(seq 1 $NUM_INSTANCES); do
     
     echo "Launching instance $i with simulator: $simulator_name"
     echo "Running instance $i directly (sequential mode)..."
-    "$(cd "$(dirname "$0")" && pwd)/run-ios-simulator.sh" "$i" "$simulator_name" "$BOOT_SIMULATORS"
+    "$(cd "$(dirname "$0")" && pwd)/run-ios-simulator.sh" --instance "$i" --simulator "$simulator_name" --boot "$CLEAN"
     
     echo "Instance $i completed. Moving to next instance..."
   else
     # For parallel mode, use the pre-booted simulators if available
-    if [ "$BOOT_SIMULATORS" = true ] && [ -n "${BOOTED_SIMULATOR_NAMES[$i-1]}" ]; then
+    if [ "$CLEAN" = true ] && [ -n "${BOOTED_SIMULATOR_NAMES[$i-1]}" ]; then
       # Use the pre-booted simulator
       simulator_name="${BOOTED_SIMULATOR_NAMES[$i-1]}"
       echo "Launching instance $i with pre-booted simulator: $simulator_name"
@@ -350,7 +388,7 @@ for i in $(seq 1 $NUM_INSTANCES); do
     launch_terminal_window "$i" "$simulator_name"
     
     # Add a short delay between instances to prevent resource contention
-    if [ "$BOOT_SIMULATORS" = true ]; then
+    if [ "$CLEAN" = true ]; then
       # Since we're pre-booting simulators now, we only need a short delay
       # for the Tauri/Vite processes to initialize
       echo "Waiting for 10 seconds before launching the next instance..."

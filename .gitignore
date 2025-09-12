@@ -1,3 +1,10 @@
 .turbo
 node_modules
 .env
+
+# Generated files
+gen/
+
+# Tauri config backup files created by multi-instance scripts
+*.backup*
+tauri.conf.json.backup*

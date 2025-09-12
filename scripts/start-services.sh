@@ -58,6 +58,10 @@ if ! command -v docker-compose &> /dev/null; then
   exit 1
 fi
 
+# Change to the directory containing docker-compose.yml
+echo "Changing to project root directory..."
+cd "$(dirname "$0")/.." || exit 1
+
 # Start all services with Docker Compose
 echo "Starting all services with Docker Compose..."
 echo "To run the iOS simulators, open another terminal and run:"

@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run linting and type checking
+bun run lint
+bun run check-types
+
+# Run fast unit tests only (skip slow integration/e2e tests)
+bun run test:scripts:unit
+
+# Format code
+bun run format

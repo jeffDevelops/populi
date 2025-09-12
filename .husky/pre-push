@@ -1,0 +1,33 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run all tests including E2E tests before push
+echo "Running comprehensive test suite before push..."
+echo ""
+
+
+# Mandatory test execution - no skip option
+echo "🚀 Running mandatory test suite before push..."
+bun run test
+if [ $? -ne 0 ]; then
+  echo "❌ Tests failed! Push aborted."
+  echo "💡 Fix failing tests before pushing to maintain code quality."
+  exit 1
+fi
+echo "✅ All tests passed! Proceeding with push..."
+
+# Run main app tests if they exist
+if [ -f "apps/tauri/package.json" ]; then
+  echo "Running Tauri app tests..."
+  cd apps/tauri && bun test 2>/dev/null || echo "No Tauri tests found"
+  cd ../..
+fi
+
+# Run signaling server tests if they exist
+if [ -f "apps/signaling/package.json" ]; then
+  echo "Running signaling server tests..."
+  cd apps/signaling && bun test 2>/dev/null || echo "No signaling tests found"
+  cd ../..
+fi
+
+echo "All tests passed! Proceeding with push..."

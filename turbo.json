@@ -4,12 +4,22 @@
     "build": {
       "outputs": ["dist/**"]
     },
+    "lint": {
+      "dependsOn": ["^lint"]
+    },
     "check-types": {
       "dependsOn": ["^check-types"]
     },
     "dev": {
       "persistent": true,
       "cache": false
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"]
+    },
+    "test:scripts": {
+      "outputs": ["scripts/coverage/**"]
     }
   }
 }

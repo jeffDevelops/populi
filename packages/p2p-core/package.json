@@ -3,7 +3,9 @@
   "type": "module",
   "scripts": {
     "dev": "tsc --watch",
-    "build": "tsc"
+    "build": "tsc",
+    "lint": "echo 'No linting configured for p2p-core'",
+    "check-types": "tsc --noEmit"
   },
   "exports": {
     "./index": {
