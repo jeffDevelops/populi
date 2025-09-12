@@ -3,6 +3,7 @@ trigger: always_on
 ---
 
 # General Rules
+
 - All necessary services can be started using `bun run dev` from the root directory. This runs the `turbo dev` script defined in package.json. This, in turn, runs the Docker Compose file defined in docker-compose.yml, which starts the CoTURN server for NAT traversal and a local instance of the hosted signaling server.
 - When adding new packages, consider the root turbo.json file for build and run steps. If a new package requires a build step, add it to the root turbo.json file.
 - When adding new services to docker-compose.yml, consider the root docker-compose.yml file for service configuration.
@@ -20,6 +21,7 @@ trigger: always_on
 - My client-side testing setup is based on Vitest and Svelte Testing Library
 
 # General Code Style & Formatting
+
 - Use English for all code and documentation.
 - Always declare the type of each variable and function (parameters and return value).
 - Avoid using any.
@@ -28,8 +30,8 @@ trigger: always_on
 - Use empty lines to break up code into logical parts.
 - Organize imports in order of line length from shortest line length to longest; group imports by type (e.g. built-in, external, internal) and sort each group by maximum line length, shortest to longest
 
-
 # Naming Conventions
+
 - Use PascalCase for classes.
 - Use camelCase for variables, functions, and methods.
 - Use kebab-case for file and directory names.
@@ -38,6 +40,7 @@ trigger: always_on
 - Avoid magic numbers and define constants.
 
 # Functions & Logic
+
 - Keep functions short and single-purpose (<20 lines).
 - Avoid deeply nested blocks by:
 - Using early returns.
@@ -49,6 +52,7 @@ trigger: always_on
 - For functions that accept multiple arguments, expect typed object literals so that all variables are labeled and explicitly typed
 
 # Data Handling
+
 - Avoid excessive use of primitive types; encapsulate data in composite types.
 - Avoid placing validation inside functions—use classes with internal validation instead.
 - Prefer immutability for data:

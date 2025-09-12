@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
@@ -12,12 +12,12 @@ export default defineConfig({
     poolOptions: {
       forks: {
         singleFork: true,
-        isolate: false // Prevent worker isolation issues with long-running E2E tests
-      }
+        isolate: false, // Prevent worker isolation issues with long-running E2E tests
+      },
     },
     maxConcurrency: 1,
     reporters: [['default', { summary: false }]], // Use default reporter without summary for cleaner output
     silent: false, // Keep test output visible but reduce noise
-    logHeapUsage: false // Disable heap usage logging
-  }
-});
+    logHeapUsage: false, // Disable heap usage logging
+  },
+})

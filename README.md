@@ -30,29 +30,36 @@ Traditional open source assumes good faith and shared values. Some actors, howev
 ## Philosophy: Big Tech's Open Source Playbook
 
 ### Embrace, Extend, Extinguish
-FAANG (Facebook, Amazon, Apple, Netflix, Google), or now MANGA (Meta / Microsoft, Amazon, Netflix, Google, Apple) have used open source to fragment networks and kill alternatives. 
+
+FAANG (Facebook, Amazon, Apple, Netflix, Google), or now MANGA (Meta / Microsoft, Amazon, Netflix, Google, Apple) have used open source to fragment networks and kill alternatives.
 
 Historical examples of this playbook include XMPP, RSS, and email. Google embraced and extended XMPP with Google Talk, then abandoned the project, fragmenting the network. Facebook and Twitter killed adoption of RSS by providing "better" proprietary alternatives. Email still uses open protocols but is increasingly controlled by Gmail/Outlook oligopoly.
 
 #### Embrace
+
 FAANG: "Sure! We support open standards! We'll build clients that work with your protocol. We'll even contribute to development and provide infrastructure, if you allow us to gain influence in governance."
 
 #### Extend
+
 FAANG then add proprietary features that only work with their clients. "We provide an enhanced experience when connecting to other \[FAANG\] users." This gradually makes the underlying protocol inferior and less interoperable with other protocols.
 
 #### Extinguish
+
 FAANG achieves a critical mass of users dependent on the proprietary experience. They break compatibility with implementations that use the "pure" open standard, and use colorful language like "legacy" to describe those implementations to portray them as inferior. They then force users to choose between losing the features they provide, or switch to the corporate version with the subscription plan.
 
 ### Vendor Lock-in Patterns
+
 - Tech companies offer "free" services that are often critical dependencies, such as authentication, database hosting, etc., and build their business models off the idea that many of these free tier accounts will upgrade to paid accounts once usership grows. Sure, these companies need to make money, but the price gouge that comes with consumers' broaching the paid tier is often prohibitive to the point where the fledgling service either needs the resources to spend a development cycle on migrating to an in-house replacement, or be forced to shutter the service entirely.
 
 ### Other potential Big Tech attack vectors
 
 #### Infrastructure Capture
+
 - In exchange for governance influence, FAANG could offer "free" high-performing signaling, STUN, and TURN servers that increasingly become dependencies.
 - Storage: FAANG could offer "free" cloud storage in OneDrive, Google Drive, iCloud, or S3, or bundle such services with their proprietary clients.
 
 #### Superior Engineering Resources
+
 - FAANG has access to some of the best engineers in the world, and can use their influence to recruit top talent. This gives them a significant advantage in development speed and quality.
 
 ## Development
@@ -76,6 +83,7 @@ All development scripts follow the pattern: `[host-os]:[target-os]:[action]`
 - **action**: What the script does (multi, single, setup-avds, setup-env, etc.)
 
 **Examples:**
+
 - `windows:android:multi` - Run multiple Android instances from Windows
 - `macos:ios:single` - Run single iOS instance from macOS
 - `windows:system:enable-dev-mode` - Configure Windows system settings
@@ -89,6 +97,7 @@ For testing peer-to-peer functionality, you can launch multiple instances of the
 #### Windows
 
 **Available Commands:**
+
 ```bash
 # Windows Development
 bun run windows:windows:multi          # Multiple Windows instances
@@ -108,6 +117,7 @@ bun run dev:services                   # Start Docker services
 ```
 
 **Named Parameters:**
+
 ```bash
 # Examples with PowerShell named parameters
 bun run windows:windows:multi -- -NumberOfInstances 3 -Sequential $true
@@ -118,6 +128,7 @@ bun run windows:android:single -- -InstanceId 2 -EmulatorName "Pixel_7_API_34"
 #### macOS
 
 **Available Commands:**
+
 ```bash
 # iOS Development
 bun run macos:ios:swarm            # Multiple iOS simulators
@@ -138,11 +149,13 @@ bun run dev:services               # Start Docker services
 Before launching Launch-Swarm-Android.ps1 instances, you need to set up your development environment:
 
 **Prerequisites:**
+
 1. **Android Studio** - Download from https://developer.android.com/studio
 2. **Java JDK 17+** - Required for Android SDK tools
 3. **Android NDK** - Install via Android Studio SDK Manager
 
 **Environment Variables:**
+
 - `JAVA_HOME` - Path to your Java installation
 - `NDK_HOME` - Path to Android NDK (e.g., `C:\Users\{username}\AppData\Local\Android\Sdk\ndk\{version}`)
 - `PATH` - Must include Android SDK platform-tools and emulator directories
@@ -157,6 +170,7 @@ bun run windows:android:setup-avds     # Create test devices
 ```
 
 This script will:
+
 - Automatically find your Android SDK installation
 - Install required system images (API 34, 33)
 - Create multiple Pixel device AVDs:
@@ -170,17 +184,19 @@ This script will:
 ##### Multi-Instance Launching
 
 **Available Commands:**
+
 ```bash
 # Android Development (Windows host)
 bun run windows:android:swarm          # Multiple Android emulators
 bun run windows:android:single         # Single Android emulator
 
-# Android Development (macOS host)  
+# Android Development (macOS host)
 bun run macos:android:swarm            # Multiple Android emulators
 bun run macos:android:single           # Single Android emulator
 ```
 
 **Named Parameters:**
+
 ```bash
 # Windows (PowerShell style with single dash)
 bun run windows:android:swarm -- -NumberOfInstances 3 -Sequential $true
@@ -195,6 +211,7 @@ bun run macos:ios:single -- --instance 1 --simulator "iPhone 15"
 ```
 
 **Available Parameters:**
+
 - **Multi-instance scripts**: `instances/NumberOfInstances`, `sequential/Sequential`, `services/StartServices`
 - **Single instance scripts**: `instance/InstanceId`, `emulator|simulator/EmulatorName|SimulatorName`
 
@@ -221,16 +238,19 @@ bun run test:scripts:coverage
 ### Test Categories
 
 **Unit Tests** (`tests/scripts/unit/`)
+
 - Parameter parsing validation for PowerShell and bash scripts
 - Cross-platform parameter consistency checks
 - Input validation and error handling
 
 **Integration Tests** (`tests/scripts/integration/`)
+
 - Script execution with mocked Android/iOS tools
 - Multi-instance launch orchestration
 - Port allocation and device management
 
 **End-to-End Tests** (`tests/scripts/e2e/`)
+
 - Real emulator/simulator launching (disabled by default)
 - Requires appropriate SDKs (Android SDK on all platforms, Xcode on macOS)
 - Enable with `RUN_E2E_TESTS=true` or `CI=true`
@@ -245,6 +265,7 @@ bun run test:scripts:coverage
 ### Test Configuration
 
 Tests use sequential execution to prevent resource conflicts and include:
+
 - 30-second timeout for PowerShell script execution
 - Automatic test environment setup and cleanup
 - Suppressed Docker warnings and external tool noise

@@ -5,6 +5,7 @@
 This license governs the use of software designed to enable decentralized, privacy-respecting applications that serve the people rather than extractive business models. The software is made available for study, audit, and approved use under the terms below.
 
 ## Definitions
+
 "Software" means the P2P framework, including source code, documentation, and associated materials.
 "Network" means the decentralized peer-to-peer network created by applications using this Software.
 "Surveillance Advertising" means the practice of collecting user behavioral data for the purpose of targeting advertisements.
@@ -12,6 +13,7 @@ This license governs the use of software designed to enable decentralized, priva
 "Approved Use" means use that has been explicitly authorized through Community Governance processes.
 
 ## Permissions
+
 Subject to the conditions and limitations below, you are granted the following rights:
 
 - Study and Audit: View, study, analyze, and audit the Software source code
@@ -21,6 +23,7 @@ Subject to the conditions and limitations below, you are granted the following r
 - Approved Commercial Use: Use the Software commercially only with explicit Community Governance approval
 
 ## Conditions
+
 Any use of the Software must comply with the following:
 
 1. Attribution: Include this license and attribution in all copies or substantial portions of the Software
@@ -30,6 +33,7 @@ Any use of the Software must comply with the following:
 5. Audit Compliance: Allow Community auditing of applications using the Software
 
 ## Prohibited Uses
+
 The following uses are explicitly prohibited:
 
 1. Surveillance and Surveillance Advertising: Implementing or enabling behavioral tracking for advertisement targeting
@@ -39,6 +43,7 @@ The following uses are explicitly prohibited:
 5. Competing Networks: Creating alternative networks designed to fragment or undermine the Community
 
 ## Commercial Use Requirements
+
 Commercial use requires:
 
 1. Community Approval: Explicit authorization through established governance processes
@@ -47,6 +52,7 @@ Commercial use requires:
 4. User Benefit Alignment: Demonstration that commercial activities benefit Network users
 
 ## Community Governance Integration
+
 1. Consensus Requirements: Major changes to applications must be approved through Community consensus
 2. External Integrations: Third-party API usage must be approved through established processes
 3. Violation Reporting: Community members may report suspected license violations
@@ -54,6 +60,7 @@ Commercial use requires:
 5. Access Revocation: Community may revoke usage rights for persistent violations
 
 ## Enforcement and Remedies
+
 1. Automatic Termination: Violation of prohibited uses automatically terminates all rights under this license
 2. Community Enforcement: The Community may collectively decide on enforcement actions
 3. Technical Restrictions: Network access may be technically restricted for violating applications
@@ -61,6 +68,7 @@ Commercial use requires:
 5. Restoration: Rights may be restored upon demonstrated compliance and Community approval
 
 ## Compliance Verification
+
 1. Code Auditing: Applications may be subject to source code review by Community members
 2. Network Monitoring: Application behavior on the Network may be monitored for compliance
 3. Business Practice Review: Commercial activities may be reviewed for alignment with license terms
@@ -68,15 +76,18 @@ Commercial use requires:
 5. Self-Reporting: License holders must promptly report any potential violations
 
 ## Limitation of Liability
+
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ## License Evolution
+
 Community Amendment: This license may be amended through Community Governance processes
 Backward Compatibility: Amendments should maintain compatibility with existing approved uses
 Notification: License changes must be announced with reasonable advance notice
 Grandfathering: Existing approved uses may continue under previous license terms for a transition period
 
 ## Severability
+
 If any provision of this license is held to be unenforceable, the remainder shall continue in full force and effect, and the unenforceable provision shall be modified to achieve the intended effect to the maximum extent legally possible.
 
 Copyright Notice: Copyright (c) 2025 Pro Populi
