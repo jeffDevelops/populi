@@ -39,7 +39,7 @@ function Get-WindowTitle {
         [int]$InstanceId,
         [string]$EmulatorName
     )
-    return "Tauri Android Emulator #$InstanceId ($EmulatorName)"
+    return "Populi Android #$InstanceId - $EmulatorName - Logs"
 }
 
 # Function to start a terminal window with the Android emulator
@@ -84,7 +84,9 @@ function Start-TerminalWindow {
         if ($ReadOnly) {
             $Command += " -ReadOnly"
         }
-        Start-Process "powershell.exe" -ArgumentList "-NoExit", "-Command", $Command
+        # Set window title for regular PowerShell and add initial log message
+        $TitleCommand = "Host.UI.RawUI.WindowTitle = '$Title'; Write-Host '=== $Title ===' -ForegroundColor Green; Write-Host 'Instance ID: $InstanceId | Emulator: $EmulatorName' -ForegroundColor Cyan; Write-Host 'Application logs will appear below:' -ForegroundColor Yellow; Write-Host ''; $Command"
+        Start-Process "powershell.exe" -ArgumentList "-NoExit", "-Command", $TitleCommand
     }
 }
 

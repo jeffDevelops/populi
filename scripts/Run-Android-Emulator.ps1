@@ -221,10 +221,15 @@ if (Test-Path $OriginalNodeModules) {
     Write-Host "$(Get-Date -Format 'HH:mm:ss') - Warning: Original node_modules not found, skipping symlink." -ForegroundColor Yellow
 }
 
-# Set CARGO_TARGET_DIR for isolated Rust builds
-$CargoTargetDir = Join-Path $ProjectDir "src-tauri\target"
-$env:CARGO_TARGET_DIR = $CargoTargetDir
-Write-Host "$(Get-Date -Format 'HH:mm:ss') - Set CARGO_TARGET_DIR to: $CargoTargetDir" -ForegroundColor Green
+# Set instance-specific CARGO_TARGET_DIR for Android to avoid file locks
+# Android compilation has stricter locking than Windows, so use separate directories
+$InstanceCargoTargetDir = Join-Path $ProjectDir "src-tauri\target"
+if (-not (Test-Path $InstanceCargoTargetDir)) {
+    New-Item -ItemType Directory -Path $InstanceCargoTargetDir -Force | Out-Null
+    Write-Host "$(Get-Date -Format 'HH:mm:ss') - Created instance-specific Cargo target directory: $InstanceCargoTargetDir" -ForegroundColor Green
+}
+$env:CARGO_TARGET_DIR = $InstanceCargoTargetDir
+Write-Host "$(Get-Date -Format 'HH:mm:ss') - Using instance-specific CARGO_TARGET_DIR to avoid file locks: $InstanceCargoTargetDir" -ForegroundColor Green
 
 # Create a dynamic .env file for this instance
 Write-Host "$(Get-Date -Format 'HH:mm:ss') - Creating dynamic .env file with host IP and ports..." -ForegroundColor Cyan
@@ -374,12 +379,12 @@ function Start-EmulatorWithRetry {
             # Start emulator process with output redirection to capture errors
             # Use -read-only flag conditionally when multiple instances are expected
             if ($ReadOnly) {
-                $EmulatorArgs = @("-avd", $EmulatorName, "-read-only")
-                Write-Host "$(Get-Date -Format 'HH:mm:ss') - Using -read-only flag for multi-instance support" -ForegroundColor Gray
+                $EmulatorArgs = @("-avd", $EmulatorName, "-read-only", "-no-snapshot-save", "-no-snapshot-load", "-gpu", "host", "-memory", "4096", "-cores", "4")
+                Write-Host "$(Get-Date -Format 'HH:mm:ss') - Using -read-only flag for multi-instance support with performance optimizations" -ForegroundColor Gray
             } else {
-                $EmulatorArgs = @("-avd", $EmulatorName)
+                $EmulatorArgs = @("-avd", $EmulatorName, "-gpu", "host", "-memory", "4096", "-cores", "4")
             }
-            $EmulatorProcess = Start-Process -FilePath "emulator" -ArgumentList $EmulatorArgs -PassThru -RedirectStandardOutput $StdOutFile -RedirectStandardError $StdErrFile -ErrorAction Stop
+            $EmulatorProcess = Start-Process -FilePath "emulator" -ArgumentList $EmulatorArgs -PassThru -RedirectStandardOutput $StdOutFile -RedirectStandardError $StdErrFile -WindowStyle Hidden -ErrorAction Stop
             Write-Host "$(Get-Date -Format 'HH:mm:ss') - Emulator process started with PID: $($EmulatorProcess.Id)" -ForegroundColor Green
             Write-Host "$(Get-Date -Format 'HH:mm:ss') - Output logs: $StdOutFile" -ForegroundColor Gray
             Write-Host "$(Get-Date -Format 'HH:mm:ss') - Error logs: $StdErrFile" -ForegroundColor Gray
@@ -392,6 +397,26 @@ function Start-EmulatorWithRetry {
                 $ProcessStillRunning = Get-Process -Id $EmulatorProcess.Id -ErrorAction SilentlyContinue
                 if (-not $ProcessStillRunning) {
                     Write-Host "$(Get-Date -Format 'HH:mm:ss') - Emulator process terminated during startup" -ForegroundColor Red
+                    
+                    # Clean up only the specific failed emulator process, not all emulator processes
+                    Write-Host "$(Get-Date -Format 'HH:mm:ss') - Cleaning up failed emulator process for $EmulatorName..." -ForegroundColor Yellow
+                    
+                    # Only kill processes that might be related to this specific AVD
+                    # Check for processes that have our specific emulator name in command line
+                    $SpecificProcesses = Get-WmiObject Win32_Process | Where-Object { 
+                        $_.CommandLine -and $_.CommandLine.Contains($EmulatorName) -and 
+                        ($_.Name -like "*emulator*" -or $_.Name -like "*qemu*")
+                    }
+                    
+                    if ($SpecificProcesses) {
+                        $SpecificProcesses | ForEach-Object {
+                            Write-Host "$(Get-Date -Format 'HH:mm:ss') - Stopping specific failed process for $EmulatorName (PID: $($_.ProcessId))" -ForegroundColor Gray
+                            Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+                        }
+                        Start-Sleep -Seconds 2
+                    } else {
+                        Write-Host "$(Get-Date -Format 'HH:mm:ss') - No specific processes found for $EmulatorName to clean up" -ForegroundColor Gray
+                    }
                     
                     # Read and display error output
                     if (Test-Path $StdErrFile) {
@@ -502,7 +527,7 @@ Write-Host "  - VITE_HMR_PORT: $HMRPort" -ForegroundColor Yellow
 Write-Host "  - VITE_HOST_IP: $HostIP" -ForegroundColor Yellow
 Write-Host "  - VITE_SIGNALING_URL: ws://$HostIP`:3000" -ForegroundColor Yellow
 Write-Host "  - VITE_TURN_SERVER: $HostIP`:3478" -ForegroundColor Yellow
-Write-Host "  - CARGO_TARGET_DIR: $CargoTargetDir" -ForegroundColor Yellow
+Write-Host "  - CARGO_TARGET_DIR: $InstanceCargoTargetDir" -ForegroundColor Yellow
 
 # Run the Tauri app on Android emulator
 Write-Host "Running Tauri app for Android..." -ForegroundColor Green

@@ -259,10 +259,15 @@ function New-TauriProjectInstance {
     }
     Write-Host "$(Get-Date -Format 'HH:mm:ss') - node_modules setup verified." -ForegroundColor Green
     
-    # Set CARGO_TARGET_DIR for isolated Rust builds
-    $CargoTargetDir = Join-Path $ProjectDir "src-tauri\target"
-    $env:CARGO_TARGET_DIR = $CargoTargetDir
-    Write-Host "$(Get-Date -Format 'HH:mm:ss') - Set CARGO_TARGET_DIR to: $CargoTargetDir" -ForegroundColor Green
+    # Set shared CARGO_TARGET_DIR for Rust compilation caching
+    # Use a shared cache directory to avoid recompiling when only JS changes
+    $SharedCargoTargetDir = Join-Path $env:TEMP "populi-cargo-cache"
+    if (-not (Test-Path $SharedCargoTargetDir)) {
+        New-Item -ItemType Directory -Path $SharedCargoTargetDir -Force | Out-Null
+        Write-Host "$(Get-Date -Format 'HH:mm:ss') - Created shared Cargo cache directory: $SharedCargoTargetDir" -ForegroundColor Green
+    }
+    $env:CARGO_TARGET_DIR = $SharedCargoTargetDir
+    Write-Host "$(Get-Date -Format 'HH:mm:ss') - Using shared CARGO_TARGET_DIR for compilation caching: $SharedCargoTargetDir" -ForegroundColor Green
     
     # Update Vite configuration to ensure proper host binding
     $ViteConfigPath = Join-Path $ProjectDir "vite.config.js"
@@ -443,7 +448,7 @@ function Show-EnvironmentVariables {
     Write-Host "  - VITE_HOST_IP: $HostIP" -ForegroundColor Yellow
     Write-Host "  - VITE_SIGNALING_URL: ws://$HostIP`:3000" -ForegroundColor Yellow
     Write-Host "  - VITE_TURN_SERVER: $HostIP`:3478" -ForegroundColor Yellow
-    Write-Host "  - CARGO_TARGET_DIR: $CargoTargetDir" -ForegroundColor Yellow
+    Write-Host "  - CARGO_TARGET_DIR: $SharedCargoTargetDir" -ForegroundColor Yellow
 }
 
 # Function to clean up temporary project directory
