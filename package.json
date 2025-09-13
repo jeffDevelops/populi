@@ -17,6 +17,8 @@
     "windows:android:single": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/Run-Android-Emulator.ps1",
     "windows:android:setup-env": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/setup-android-env.ps1",
     "windows:android:setup-avds": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/Setup-Android-AVDs.ps1",
+    "windows:windows:swarm": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/Launch-Swarm-Windows.ps1",
+    "windows:windows:single": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/Run-Windows-Instance.ps1",
     "windows:enable-dev-mode": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/enable-developer-mode.ps1",
     "macos:android:swarm": "./scripts/launch-swarm-android.sh",
     "macos:android:single": "./scripts/run-android-emulator.sh",

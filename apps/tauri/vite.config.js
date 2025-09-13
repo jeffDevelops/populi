@@ -24,7 +24,7 @@ export default defineConfig(async () => ({
   server: {
     port: serverPort,
     strictPort: true,
-    host: host || "0.0.0.0",
+    host: "0.0.0.0", // Always bind to all interfaces for multi-instance support
     hmr: host
       ? {
           protocol: "ws",
@@ -32,6 +32,8 @@ export default defineConfig(async () => ({
           port: hmrPort,
         }
       : {
+          protocol: "ws",
+          host: "0.0.0.0", // Use 0.0.0.0 for Windows when no TAURI_DEV_HOST is set
           port: hmrPort,
         },
     watch: {

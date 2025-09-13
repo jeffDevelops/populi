@@ -172,7 +172,13 @@ fi
 
 # Update the Tauri config with the correct port
 echo "Updating Tauri config with devUrl: http://localhost:$SERVER_PORT"
+# Try to replace existing devUrl first
 sed -i.tmp "s|\"devUrl\": \"http://localhost:[0-9]*\"|\"devUrl\": \"http://localhost:$SERVER_PORT\"|g" "$TAURI_CONFIG_PATH"
+# If no replacement was made (check if the file changed), add devUrl to build section
+if cmp -s "$TAURI_CONFIG_PATH" "${TAURI_CONFIG_PATH}.tmp"; then
+    echo "No existing devUrl found, adding new devUrl to build section"
+    sed -i.tmp "s|\"frontendDist\": \"[^\"]*\"|&,\n    \"devUrl\": \"http://localhost:$SERVER_PORT\"|g" "$TAURI_CONFIG_PATH"
+fi
 rm "${TAURI_CONFIG_PATH}.tmp"
 
 # Get the host machine's IP address (works on macOS)
@@ -380,7 +386,13 @@ echo "$(date +"%T") - Vite config updated successfully."
 # Update the config in the temporary location
 INSTANCE_CONFIG_PATH="$PROJECT_DIR/src-tauri/tauri.conf.json"
 echo "$(date +"%T") - Updating Tauri config with devUrl: http://localhost:$SERVER_PORT in $INSTANCE_CONFIG_PATH"
+# Try to replace existing devUrl first
 sed -i.tmp "s|\"devUrl\": \"http://localhost:[0-9]*\"|\"devUrl\": \"http://localhost:$SERVER_PORT\"|g" "$INSTANCE_CONFIG_PATH"
+# If no replacement was made (check if the file changed), add devUrl to build section
+if cmp -s "$INSTANCE_CONFIG_PATH" "${INSTANCE_CONFIG_PATH}.tmp"; then
+    echo "$(date +"%T") - No existing devUrl found, adding new devUrl to build section"
+    sed -i.tmp "s|\"frontendDist\": \"[^\"]*\"|&,\n    \"devUrl\": \"http://localhost:$SERVER_PORT\"|g" "$INSTANCE_CONFIG_PATH"
+fi
 rm "${INSTANCE_CONFIG_PATH}.tmp"
 echo "$(date +"%T") - Tauri config updated successfully."
 

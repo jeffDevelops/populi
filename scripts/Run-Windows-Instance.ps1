@@ -2,8 +2,13 @@
 # Usage: .\Run-Windows-Instance.ps1 -InstanceId [instance_id]
 
 param(
-    [int]$InstanceId = 1
+    [int]$InstanceId = 1,
+    [int]$ServerPort = 0,
+    [int]$HMRPort = 0
 )
+
+# Import common functions
+. "$PSScriptRoot\Common-Tauri-Functions.ps1"
 
 # Enable verbose output
 $VerbosePreference = "Continue"
@@ -11,170 +16,46 @@ $VerbosePreference = "Continue"
 # Print initial status immediately
 Write-Host "Starting Tauri Windows instance $InstanceId" -ForegroundColor Green
 
-# Use higher base ports to avoid common conflicts
-$BaseServerPort = 5000
-$BaseHMRPort = 6000
-
-# Calculate ports for this instance with wider spacing
-$ServerPort = $BaseServerPort + (($InstanceId - 1) * 20)
-$HMRPort = $BaseHMRPort + (($InstanceId - 1) * 20)
-
-# Function to check if a port is available
-function Test-PortAvailable {
-    param(
-        [int]$Port
-    )
-    
-    Write-Host "$(Get-Date -Format 'HH:mm:ss') - Checking if port $Port is available..." -ForegroundColor Cyan
-    
-    try {
-        # Try to create a TCP listener on the port
-        $Listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Any, $Port)
-        $Listener.Start()
-        $Listener.Stop()
-        Write-Host "$(Get-Date -Format 'HH:mm:ss') - Port $Port is available" -ForegroundColor Green
-        return $true
-    }
-    catch {
-        Write-Host "$(Get-Date -Format 'HH:mm:ss') - Port $Port is in use" -ForegroundColor Yellow
-        return $false
-    }
+# Use provided ports or calculate defaults if not provided
+if ($ServerPort -eq 0) {
+    # Use base ports that match Tauri's expected devUrl (1420)
+    $BaseServerPort = 1420
+    $ServerPort = $BaseServerPort + (($InstanceId - 1) * 20)
+    Write-Host "$(Get-Date -Format 'HH:mm:ss') - No ServerPort provided, calculated: $ServerPort" -ForegroundColor Yellow
 }
 
-# Pre-check if our signaling server is using port 3000
-if ($ServerPort -eq 3000) {
-    Write-Host "$(Get-Date -Format 'HH:mm:ss') - Port 3000 is reserved for signaling server, skipping" -ForegroundColor Yellow
-    $ServerPort = 3010
+if ($HMRPort -eq 0) {
+    # Use base HMR port
+    $BaseHMRPort = 6000
+    $HMRPort = $BaseHMRPort + (($InstanceId - 1) * 20)
+    Write-Host "$(Get-Date -Format 'HH:mm:ss') - No HMRPort provided, calculated: $HMRPort" -ForegroundColor Yellow
 }
 
-# Find available server port with max attempts
-$MaxAttempts = 5
-$Attempts = 0
-Write-Host "$(Get-Date -Format 'HH:mm:ss') - Finding available server port starting from $ServerPort..." -ForegroundColor Cyan
-while (-not (Test-PortAvailable -Port $ServerPort) -and $Attempts -lt $MaxAttempts) {
-    $Attempts++
-    Write-Host "$(Get-Date -Format 'HH:mm:ss') - Attempt $Attempts`: Port $ServerPort is in use, trying next port" -ForegroundColor Yellow
-    $ServerPort += 2
-}
-
-# Find available HMR port with max attempts
-$Attempts = 0
-Write-Host "$(Get-Date -Format 'HH:mm:ss') - Finding available HMR port starting from $HMRPort..." -ForegroundColor Cyan
-while (-not (Test-PortAvailable -Port $HMRPort) -and $Attempts -lt $MaxAttempts) {
-    $Attempts++
-    Write-Host "$(Get-Date -Format 'HH:mm:ss') - Attempt $Attempts`: Port $HMRPort is in use, trying next port" -ForegroundColor Yellow
-    $HMRPort += 2
-}
-
-Write-Host "$(Get-Date -Format 'HH:mm:ss') - Using ports: SERVER=$ServerPort, HMR=$HMRPort" -ForegroundColor Green
-
-# Get the host machine's IP address (works on Windows)
-function Get-HostIP {
-    try {
-        # Try to get IP address that can be reached from other devices
-        $DefaultRoute = Get-NetRoute -DestinationPrefix "0.0.0.0/0" | Where-Object { $_.NextHop -ne "0.0.0.0" } | Select-Object -First 1
-        if ($DefaultRoute) {
-            $InterfaceIndex = $DefaultRoute.InterfaceIndex
-            $IPAddress = Get-NetIPAddress -InterfaceIndex $InterfaceIndex -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike "169.254.*" } | Select-Object -First 1
-            if ($IPAddress) {
-                return $IPAddress.IPAddress
-            }
-        }
-        
-        # Fallback: Get the first non-loopback, non-APIPA IPv4 address
-        $NetworkAdapters = Get-NetIPAddress -AddressFamily IPv4 | Where-Object { 
-            $_.IPAddress -ne "127.0.0.1" -and 
-            $_.IPAddress -notlike "169.254.*" -and
-            ($_.PrefixOrigin -eq "Dhcp" -or $_.PrefixOrigin -eq "Manual")
-        } | Select-Object -First 1
-        
-        if ($NetworkAdapters) {
-            return $NetworkAdapters.IPAddress
-        }
-        
-        # If all else fails, use localhost
-        Write-Warning "Could not determine host IP address. Using localhost."
-        return "127.0.0.1"
-    }
-    catch {
-        Write-Warning "Error determining host IP address: $($_.Exception.Message). Using localhost."
-        return "127.0.0.1"
-    }
-}
+# Get available ports using common function
+$PortInfo = Get-AvailablePorts -ServerPort $ServerPort -HMRPort $HMRPort
+$ServerPort = $PortInfo.ServerPort
+$HMRPort = $PortInfo.HMRPort
 
 # Get the host IP address
 $HostIP = Get-HostIP
 Write-Host "$(Get-Date -Format 'HH:mm:ss') - Host IP address: $HostIP" -ForegroundColor Yellow
 
-# Set environment variables for Vite
-$env:VITE_INSTANCE_ID = $InstanceId
-$env:VITE_SERVER_PORT = $ServerPort
-$env:VITE_HMR_PORT = $HMRPort
-$env:VITE_HOST_IP = $HostIP
-$env:VITE_SIGNALING_URL = "ws://$HostIP`:3000"
-$env:VITE_TURN_SERVER = "$HostIP`:3478"
+# Set environment variables using common function
+Set-ViteEnvironment -InstanceId $InstanceId -ServerPort $ServerPort -HMRPort $HMRPort -HostIP $HostIP
 
 # Change to the Tauri app directory
 $TauriAppPath = Join-Path $PSScriptRoot "..\apps\tauri"
 Push-Location $TauriAppPath
 
-# Create a completely separate project directory for this instance
-$ProjectDir = "C:\temp\tauri-windows-project-$InstanceId"
-Write-Host "$(Get-Date -Format 'HH:mm:ss') - Creating separate project directory for instance $InstanceId at $ProjectDir" -ForegroundColor Cyan
-
-# Remove any existing directory but handle potential Vite dependency errors
-if (Test-Path $ProjectDir) {
-    Write-Host "$(Get-Date -Format 'HH:mm:ss') - Cleaning existing project directory..." -ForegroundColor Yellow
-    # First remove the .vite directory if it exists to prevent dependency errors
-    $ViteCachePath = Join-Path $ProjectDir "node_modules\.vite"
-    if (Test-Path $ViteCachePath) {
-        Write-Host "$(Get-Date -Format 'HH:mm:ss') - Removing .vite directory to prevent dependency errors..." -ForegroundColor Cyan
-        Remove-Item -Path $ViteCachePath -Recurse -Force
-    }
-    # Then remove the entire directory
-    Write-Host "$(Get-Date -Format 'HH:mm:ss') - Removing old project directory..." -ForegroundColor Cyan
-    Remove-Item -Path $ProjectDir -Recurse -Force
-}
-
-# Create the project directory
-Write-Host "$(Get-Date -Format 'HH:mm:ss') - Creating fresh project directory..." -ForegroundColor Cyan
-New-Item -ItemType Directory -Path $ProjectDir -Force | Out-Null
-
-# Copy the entire project to the temporary location, excluding build artifacts
-Write-Host "$(Get-Date -Format 'HH:mm:ss') - Copying project files to temporary location..." -ForegroundColor Cyan
-Write-Host "$(Get-Date -Format 'HH:mm:ss') - This may take a minute, please wait..." -ForegroundColor Yellow
-
-# Use robocopy for efficient copying with exclusions
+# Create project instance using common function
 $SourcePath = Get-Location
-$ExcludeDirs = @("node_modules", "target", ".git", ".vite", "dist", "build", ".svelte-kit")
-$ExcludeFiles = @("*.log", "*.tmp")
+$ProjectDir = New-TauriProjectInstance -InstanceId $InstanceId -Platform "windows" -SourcePath $SourcePath.Path -HostIP $HostIP -ServerPort $ServerPort -HMRPort $HMRPort
 
-# Build robocopy command
-$RobocopyArgs = @(
-    $SourcePath.Path,
-    $ProjectDir,
-    "/E",  # Copy subdirectories including empty ones
-    "/XD"  # Exclude directories
-) + $ExcludeDirs + @("/XF") + $ExcludeFiles + @("/NFL", "/NDL", "/NJH", "/NJS", "/NC", "/NS")
-
-Start-Process -FilePath "robocopy" -ArgumentList $RobocopyArgs -Wait -NoNewWindow
-Write-Host "$(Get-Date -Format 'HH:mm:ss') - Project files copied successfully." -ForegroundColor Green
-
-# Create node_modules symlink to save space and time
-Write-Host "$(Get-Date -Format 'HH:mm:ss') - Creating symlink for node_modules..." -ForegroundColor Cyan
-$OriginalNodeModules = Join-Path $SourcePath "node_modules"
-$InstanceNodeModules = Join-Path $ProjectDir "node_modules"
-if (Test-Path $OriginalNodeModules) {
-    New-Item -ItemType SymbolicLink -Path $InstanceNodeModules -Target $OriginalNodeModules -Force | Out-Null
-    Write-Host "$(Get-Date -Format 'HH:mm:ss') - node_modules symlink created." -ForegroundColor Green
-} else {
-    Write-Host "$(Get-Date -Format 'HH:mm:ss') - Warning: Original node_modules not found, skipping symlink." -ForegroundColor Yellow
+if ($null -eq $ProjectDir) {
+    Write-Host "$(Get-Date -Format 'HH:mm:ss') - Failed to create project instance. Exiting." -ForegroundColor Red
+    Pop-Location
+    exit 1
 }
-
-# Set CARGO_TARGET_DIR for isolated Rust builds
-$CargoTargetDir = Join-Path $ProjectDir "src-tauri\target"
-$env:CARGO_TARGET_DIR = $CargoTargetDir
-Write-Host "$(Get-Date -Format 'HH:mm:ss') - Set CARGO_TARGET_DIR to: $CargoTargetDir" -ForegroundColor Green
 
 Write-Host "Starting Tauri Windows instance $InstanceId with:" -ForegroundColor Green
 Write-Host "  - Server Port: $ServerPort" -ForegroundColor Yellow
@@ -182,55 +63,76 @@ Write-Host "  - HMR Port: $HMRPort" -ForegroundColor Yellow
 Write-Host "  - Working Directory: $ProjectDir" -ForegroundColor Yellow
 Write-Host "  - Cargo Target Directory: $CargoTargetDir" -ForegroundColor Yellow
 
-# Create a dynamic .env file for this instance
-Write-Host "$(Get-Date -Format 'HH:mm:ss') - Creating dynamic .env file with host IP and ports..." -ForegroundColor Cyan
-
-# Check if a base .env file exists in the project root
-$BaseEnvFile = Join-Path $PSScriptRoot ".env.base"
-$InstanceEnvFile = Join-Path $ProjectDir ".env"
-
-if (Test-Path $BaseEnvFile) {
-    Write-Host "$(Get-Date -Format 'HH:mm:ss') - Found base .env file, using it as a template" -ForegroundColor Cyan
-    # Copy the base .env file first
-    Copy-Item $BaseEnvFile $InstanceEnvFile
-    
-    # Then append the dynamic variables
-    @"
-
-# Dynamically generated variables for instance $InstanceId
-VITE_INSTANCE_ID=$InstanceId
-VITE_SERVER_PORT=$ServerPort
-VITE_HMR_PORT=$HMRPort
-VITE_HOST_IP=$HostIP
-VITE_SIGNALING_URL=ws://$HostIP`:3000
-VITE_TURN_SERVER=$HostIP`:3478
-VITE_TURN_USERNAME=riftuser
-VITE_TURN_CREDENTIAL=riftpass
-"@ | Add-Content -Path $InstanceEnvFile
-} else {
-    # No base .env file found, create a new one with just the dynamic variables
-    @"
-# Dynamically generated .env file for instance $InstanceId
-VITE_INSTANCE_ID=$InstanceId
-VITE_SERVER_PORT=$ServerPort
-VITE_HMR_PORT=$HMRPort
-VITE_HOST_IP=$HostIP
-VITE_SIGNALING_URL=ws://$HostIP`:3000
-VITE_TURN_SERVER=$HostIP`:3478
-VITE_TURN_USERNAME=riftuser
-VITE_TURN_CREDENTIAL=riftpass
-"@ | Set-Content -Path $InstanceEnvFile
-}
-
-Write-Host "$(Get-Date -Format 'HH:mm:ss') - .env file created successfully." -ForegroundColor Green
+# Create dynamic .env file using common function
+New-DynamicEnvFile -ProjectDir $ProjectDir -InstanceId $InstanceId -ServerPort $ServerPort -HMRPort $HMRPort -HostIP $HostIP -ScriptRoot $PSScriptRoot
 
 # Update the Tauri config in the isolated directory with the correct port
 $InstanceConfigPath = Join-Path $ProjectDir "src-tauri\tauri.conf.json"
 Write-Host "$(Get-Date -Format 'HH:mm:ss') - Updating Tauri config with devUrl: http://localhost:$ServerPort in $InstanceConfigPath" -ForegroundColor Cyan
-$ConfigContent = Get-Content $InstanceConfigPath -Raw
-$ConfigContent = $ConfigContent -replace '"devUrl": "http://localhost:\d+"', "`"devUrl`": `"http://localhost:$ServerPort`""
-Set-Content -Path $InstanceConfigPath -Value $ConfigContent
-Write-Host "$(Get-Date -Format 'HH:mm:ss') - Tauri config updated successfully." -ForegroundColor Green
+
+if (Test-Path $InstanceConfigPath) {
+    $ConfigContent = Get-Content $InstanceConfigPath -Raw
+    Write-Host "$(Get-Date -Format 'HH:mm:ss') - Original config contains: $($ConfigContent -match '"devUrl"')" -ForegroundColor Yellow
+    
+    # Try to replace existing devUrl first, if it exists
+    $UpdatedContent = $ConfigContent -replace '"devUrl":\s*"[^"]*"', "`"devUrl`": `"http://localhost:$ServerPort`""
+    
+    # If no replacement was made (no existing devUrl), add it to the build section
+    if ($UpdatedContent -eq $ConfigContent) {
+        Write-Host "$(Get-Date -Format 'HH:mm:ss') - No existing devUrl found, adding new devUrl to build section" -ForegroundColor Cyan
+        $UpdatedContent = $ConfigContent -replace '("frontendDist":\s*"[^"]*")', "`$1,`n    `"devUrl`": `"http://localhost:$ServerPort`""
+    } else {
+        Write-Host "$(Get-Date -Format 'HH:mm:ss') - Successfully replaced existing devUrl" -ForegroundColor Green
+    }
+    
+    # Validate JSON before writing
+    try {
+        $UpdatedContent | ConvertFrom-Json | Out-Null
+        Write-Host "$(Get-Date -Format 'HH:mm:ss') - JSON validation passed, writing config file..." -ForegroundColor Green
+        # Write without BOM to prevent JSON parsing issues
+        [System.IO.File]::WriteAllText($InstanceConfigPath, $UpdatedContent, [System.Text.UTF8Encoding]::new($false))
+    } catch {
+        Write-Host "$(Get-Date -Format 'HH:mm:ss') - Error: Generated JSON is invalid: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "$(Get-Date -Format 'HH:mm:ss') - Keeping original config file unchanged" -ForegroundColor Yellow
+        return
+    }
+    
+    # Verify the update
+    $VerifyContent = Get-Content $InstanceConfigPath -Raw
+    Write-Host "$(Get-Date -Format 'HH:mm:ss') - Verification: Looking for devUrl with port $ServerPort" -ForegroundColor Cyan
+    $DevUrlLine = $VerifyContent | Select-String '"devUrl"'
+    Write-Host "$(Get-Date -Format 'HH:mm:ss') - Found devUrl line: $DevUrlLine" -ForegroundColor Cyan
+    
+    if ($VerifyContent -match '"devUrl":\s*"http://localhost:' + $ServerPort + '"') {
+        Write-Host "$(Get-Date -Format 'HH:mm:ss') - Tauri config updated successfully. devUrl set to http://localhost:$ServerPort" -ForegroundColor Green
+    } else {
+        Write-Host "$(Get-Date -Format 'HH:mm:ss') - Warning: devUrl update may not have taken effect" -ForegroundColor Yellow
+        Write-Host "$(Get-Date -Format 'HH:mm:ss') - Expected: http://localhost:$ServerPort" -ForegroundColor Yellow
+        Write-Host "$(Get-Date -Format 'HH:mm:ss') - Current devUrl in config: $DevUrlLine" -ForegroundColor Yellow
+        
+        # Try more aggressive update
+        Write-Host "$(Get-Date -Format 'HH:mm:ss') - Attempting more aggressive config update..." -ForegroundColor Yellow
+        $UpdatedContent = $VerifyContent -replace '"devUrl":\s*"[^"]*"', "`"devUrl`": `"http://localhost:$ServerPort`""
+        
+        # Validate JSON before writing
+        try {
+            $UpdatedContent | ConvertFrom-Json | Out-Null
+            Write-Host "$(Get-Date -Format 'HH:mm:ss') - Aggressive update JSON validation passed, writing config file..." -ForegroundColor Green
+            # Write without BOM to prevent JSON parsing issues
+            [System.IO.File]::WriteAllText($InstanceConfigPath, $UpdatedContent, [System.Text.UTF8Encoding]::new($false))
+        } catch {
+            Write-Host "$(Get-Date -Format 'HH:mm:ss') - Error: Aggressive update generated invalid JSON: $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "$(Get-Date -Format 'HH:mm:ss') - Keeping previous config file version" -ForegroundColor Yellow
+        }
+        
+        # Final verification
+        $FinalContent = Get-Content $InstanceConfigPath -Raw
+        $FinalDevUrl = $FinalContent | Select-String '"devUrl"'
+        Write-Host "$(Get-Date -Format 'HH:mm:ss') - Final devUrl after aggressive update: $FinalDevUrl" -ForegroundColor Cyan
+    }
+} else {
+    Write-Host "$(Get-Date -Format 'HH:mm:ss') - Warning: Tauri config file not found at $InstanceConfigPath" -ForegroundColor Yellow
+}
 
 # Change to the isolated project directory
 Write-Host "$(Get-Date -Format 'HH:mm:ss') - Changing to isolated project directory: $ProjectDir" -ForegroundColor Cyan
@@ -238,15 +140,9 @@ Pop-Location  # Exit the original tauri directory
 Push-Location $ProjectDir
 Write-Host "$(Get-Date -Format 'HH:mm:ss') - Current directory: $(Get-Location)" -ForegroundColor Cyan
 
-# Display environment variables being used
-Write-Host "$(Get-Date -Format 'HH:mm:ss') - Using the following environment variables:" -ForegroundColor Cyan
-Write-Host "  - VITE_INSTANCE_ID: $InstanceId" -ForegroundColor Yellow
-Write-Host "  - VITE_SERVER_PORT: $ServerPort" -ForegroundColor Yellow
-Write-Host "  - VITE_HMR_PORT: $HMRPort" -ForegroundColor Yellow
-Write-Host "  - VITE_HOST_IP: $HostIP" -ForegroundColor Yellow
-Write-Host "  - VITE_SIGNALING_URL: ws://$HostIP`:3000" -ForegroundColor Yellow
-Write-Host "  - VITE_TURN_SERVER: $HostIP`:3478" -ForegroundColor Yellow
-Write-Host "  - CARGO_TARGET_DIR: $CargoTargetDir" -ForegroundColor Yellow
+# Display environment variables using common function
+$CargoTargetDir = Join-Path $ProjectDir "src-tauri\target"
+Show-EnvironmentVariables -InstanceId $InstanceId -ServerPort $ServerPort -HMRPort $HMRPort -HostIP $HostIP -CargoTargetDir $CargoTargetDir
 
 # Run the Tauri app for Windows
 Write-Host "Running Tauri app for Windows..." -ForegroundColor Green
@@ -298,22 +194,20 @@ try {
             }
         } else {
             Write-Host "$(Get-Date -Format 'HH:mm:ss') - Using native Windows commands..." -ForegroundColor Yellow
-            # Native Windows environment - try using the original project's bun
-            Push-Location $OriginalProjectPath
-            try {
-                if (Test-Path "bun.lockb") {
-                    Write-Host "$(Get-Date -Format 'HH:mm:ss') - Using bun from original project to run Tauri dev..." -ForegroundColor Cyan
-                    $env:TAURI_DEV_WATCHER_IGNORE_FILE = Join-Path $ProjectDir ".taurignore"
-                    bun run tauri dev
-                } elseif (Test-Path "package-lock.json") {
-                    Write-Host "$(Get-Date -Format 'HH:mm:ss') - Using npm from original project to run Tauri dev..." -ForegroundColor Cyan
-                    npm run tauri dev
-                } else {
-                    Write-Host "$(Get-Date -Format 'HH:mm:ss') - Defaulting to bun from original project to run Tauri dev..." -ForegroundColor Cyan
-                    bun run tauri dev
-                }
-            } finally {
-                Pop-Location
+            
+            # Run Tauri from the isolated directory to use the updated config
+            # Use the isolated directory's package.json and tauri.conf.json
+            Write-Host "$(Get-Date -Format 'HH:mm:ss') - Running Tauri from isolated directory to use updated config..." -ForegroundColor Cyan
+            
+            if (Test-Path "bun.lockb") {
+                Write-Host "$(Get-Date -Format 'HH:mm:ss') - Using bun to run Tauri dev from isolated directory..." -ForegroundColor Cyan
+                bun run tauri dev
+            } elseif (Test-Path "package-lock.json") {
+                Write-Host "$(Get-Date -Format 'HH:mm:ss') - Using npm to run Tauri dev from isolated directory..." -ForegroundColor Cyan
+                npm run tauri dev
+            } else {
+                Write-Host "$(Get-Date -Format 'HH:mm:ss') - Defaulting to bun to run Tauri dev from isolated directory..." -ForegroundColor Cyan
+                bun run tauri dev
             }
         }
     }
@@ -327,15 +221,11 @@ catch {
     Write-Host "  4. All project dependencies installed (bun install)" -ForegroundColor Yellow
 }
 finally {
-    # Cleanup - remove the temporary project directory
-    Write-Host "$(Get-Date -Format 'HH:mm:ss') - Cleaning up temporary project directory..." -ForegroundColor Yellow
+    # Cleanup project directory
     Pop-Location
-    if (Test-Path $ProjectDir) {
-        try {
-            Remove-Item -Path $ProjectDir -Recurse -Force
-            Write-Host "$(Get-Date -Format 'HH:mm:ss') - Temporary project directory cleaned up successfully." -ForegroundColor Green
-        } catch {
-            Write-Host "$(Get-Date -Format 'HH:mm:ss') - Warning: Could not fully clean up temporary directory: $($_.Exception.Message)" -ForegroundColor Yellow
-        }
+    if ($? -and $null -ne $ProjectDir) {
+        Remove-TauriProjectInstance -ProjectDir $ProjectDir
+    } else {
+        Write-Host "$(Get-Date -Format 'HH:mm:ss') - Keeping project directory for debugging: $ProjectDir" -ForegroundColor Yellow
     }
 }

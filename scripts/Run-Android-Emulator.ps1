@@ -272,8 +272,17 @@ Write-Host "$(Get-Date -Format 'HH:mm:ss') - .env file created successfully." -F
 $InstanceConfigPath = Join-Path $ProjectDir "src-tauri\tauri.conf.json"
 Write-Host "$(Get-Date -Format 'HH:mm:ss') - Updating Tauri config with devUrl: http://0.0.0.0:$ServerPort in $InstanceConfigPath" -ForegroundColor Cyan
 $ConfigContent = Get-Content $InstanceConfigPath -Raw
-$ConfigContent = $ConfigContent -replace '"devUrl": "http://[^"]*"', "`"devUrl`": `"http://0.0.0.0:$ServerPort`""
-Set-Content -Path $InstanceConfigPath -Value $ConfigContent
+
+# Try to replace existing devUrl first, if it exists
+$UpdatedContent = $ConfigContent -replace '"devUrl": "http://[^"]*"', "`"devUrl`": `"http://0.0.0.0:$ServerPort`""
+
+# If no replacement was made (no existing devUrl), add it to the build section
+if ($UpdatedContent -eq $ConfigContent) {
+    Write-Host "$(Get-Date -Format 'HH:mm:ss') - No existing devUrl found, adding new devUrl to build section" -ForegroundColor Cyan
+    $UpdatedContent = $ConfigContent -replace '("frontendDist": "[^"]*")', "`$1,`n    `"devUrl`": `"http://0.0.0.0:$ServerPort`""
+}
+
+Set-Content -Path $InstanceConfigPath -Value $UpdatedContent
 Write-Host "$(Get-Date -Format 'HH:mm:ss') - Tauri config updated successfully." -ForegroundColor Green
 
 # Check if Android SDK is available

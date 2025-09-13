@@ -1,17 +1,26 @@
 # PowerShell script to launch a swarm of Tauri app instances on Windows separate Windows terminals
-# Usage: .\Launch-Swarm-Windows.ps1 -NumberOfInstances 3 -Sequential $false -StartServices $false -PreserveExistingProcesses $false
-# If Sequential is $true, will run one instance at a time instead of in parallel
-# If StartServices is $true, will start Docker Compose services before launching instances
-# If PreserveExistingProcesses is $true, will not terminate existing Tauri processes before launching new ones
+# Usage: .\Launch-Swarm-Windows.ps1 -NumberOfInstances 3 -Sequential -StartServices -PreserveExistingProcesses -DryRun
+# If Sequential is specified, will run one instance at a time instead of in parallel
+# If StartServices is specified, will start Docker Compose services before launching instances
+# If PreserveExistingProcesses is specified, will not terminate existing Tauri processes before launching new ones
+# If DryRun is specified, will only show what would be done without actually executing
 
 param(
     [int]$NumberOfInstances = 2,
-    [bool]$Sequential = $false,
-    [bool]$StartServices = $false,
-    [bool]$PreserveExistingProcesses = $false
+    [switch]$Sequential,
+    [switch]$StartServices,
+    [switch]$PreserveExistingProcesses,
+    [switch]$DryRun
 )
 
-Write-Host "Launching $NumberOfInstances Tauri Windows instances in separate terminal windows..." -ForegroundColor Green
+# Check for test/dry-run mode to prevent terminal windows during tests
+$IsTestMode = $DryRun -or $env:VITEST_TEST -eq 'true' -or $env:DRY_RUN -eq 'true'
+
+if ($IsTestMode) {
+    Write-Host "DRY RUN: Would launch $NumberOfInstances Tauri Windows instances in separate terminal windows..." -ForegroundColor Yellow
+} else {
+    Write-Host "Launching $NumberOfInstances Tauri Windows instances in separate terminal windows..." -ForegroundColor Green
+}
 
 # Function to find existing Tauri processes
 function Get-ExistingTauriProcesses {
@@ -22,9 +31,27 @@ function Get-ExistingTauriProcesses {
             return $TauriProcesses
         }
         
-        # Also check for any processes with "tauri" in the name as fallback
-        $AllProcesses = Get-Process | Where-Object { $_.ProcessName -like "*tauri*" -or $_.MainWindowTitle -like "*Tauri*" }
-        return $AllProcesses
+        # Also check for common Tauri executable names, but be more specific
+        # Only look for actual executable processes, not IDEs or editors
+        $TauriExecutableNames = @("tauri", "app", "main")
+        $TauriProcesses = @()
+        
+        foreach ($Name in $TauriExecutableNames) {
+            $Processes = Get-Process -Name $Name -ErrorAction SilentlyContinue
+            if ($Processes) {
+                # Filter to only include processes that are likely Tauri apps
+                # Check if the process has a main window and is not a system process
+                $FilteredProcesses = $Processes | Where-Object { 
+                    $_.MainWindowHandle -ne 0 -and 
+                    $_.ProcessName -notlike "*system*" -and
+                    $_.ProcessName -notlike "*service*" -and
+                    $_.Company -notlike "*Microsoft*"
+                }
+                $TauriProcesses += $FilteredProcesses
+            }
+        }
+        
+        return $TauriProcesses
     }
     catch {
         Write-Host "Warning: Could not check for existing processes: $($_.Exception.Message)" -ForegroundColor Yellow
@@ -40,19 +67,23 @@ if ($ExistingProcesses.Count -gt 0) {
     if ($PreserveExistingProcesses) {
         Write-Host "Preserving existing processes as requested" -ForegroundColor Green
     } else {
-        Write-Host "Terminating existing processes to prevent conflicts..." -ForegroundColor Yellow
-        foreach ($Process in $ExistingProcesses) {
-            try {
-                Write-Host "Stopping process: $($Process.ProcessName) (PID: $($Process.Id))" -ForegroundColor Cyan
-                $Process.Kill()
-                $Process.WaitForExit(5000)  # Wait up to 5 seconds
+        if ($IsTestMode) {
+            Write-Host "DRY RUN: Would terminate existing processes to prevent conflicts..." -ForegroundColor Yellow
+        } else {
+            Write-Host "Terminating existing processes to prevent conflicts..." -ForegroundColor Yellow
+            foreach ($Process in $ExistingProcesses) {
+                try {
+                    Write-Host "Stopping process: $($Process.ProcessName) (PID: $($Process.Id))" -ForegroundColor Cyan
+                    $Process.Kill()
+                    $Process.WaitForExit(5000)  # Wait up to 5 seconds
+                }
+                catch {
+                    Write-Host "Warning: Could not stop process $($Process.ProcessName): $($_.Exception.Message)" -ForegroundColor Yellow
+                }
             }
-            catch {
-                Write-Host "Warning: Could not stop process $($Process.ProcessName): $($_.Exception.Message)" -ForegroundColor Yellow
-            }
+            # Give processes time to fully terminate
+            Start-Sleep -Seconds 2
         }
-        # Give processes time to fully terminate
-        Start-Sleep -Seconds 2
     }
 }
 
@@ -64,14 +95,48 @@ function Get-WindowTitle {
     return "Tauri Windows Instance #$InstanceId"
 }
 
+# Function to calculate ports for an instance
+function Get-InstancePorts {
+    param(
+        [int]$InstanceId,
+        [int]$NumberOfInstances
+    )
+    
+    # Use base ports that match Tauri's expected devUrl (1420)
+    $BaseServerPort = 1420
+    $BaseHMRPort = 6000
+    
+    # Calculate ports with wider spacing to avoid conflicts
+    $ServerPort = $BaseServerPort + (($InstanceId - 1) * 20)
+    $HMRPort = $BaseHMRPort + (($InstanceId - 1) * 20)
+    
+    # Avoid port 3000 (signaling server)
+    if ($ServerPort -eq 3000) {
+        $ServerPort = 3010
+    }
+    
+    return @{
+        ServerPort = $ServerPort
+        HMRPort = $HMRPort
+    }
+}
+
 # Function to start a terminal window with the Tauri app
 function Start-TerminalWindow {
     param(
-        [int]$InstanceId
+        [int]$InstanceId,
+        [int]$NumberOfInstances
     )
     
     $Title = Get-WindowTitle -InstanceId $InstanceId
     $ScriptPath = Join-Path $PSScriptRoot "Run-Windows-Instance.ps1"
+    
+    # Calculate ports for this instance
+    $Ports = Get-InstancePorts -InstanceId $InstanceId -NumberOfInstances $NumberOfInstances
+    $ServerPort = $Ports.ServerPort
+    $HMRPort = $Ports.HMRPort
+    
+    Write-Host "Instance $InstanceId will use ServerPort: $ServerPort, HMRPort: $HMRPort" -ForegroundColor Cyan
     
     # Use Windows Terminal if available, otherwise fall back to PowerShell
     $WindowsTerminalPath = Get-Command "wt.exe" -ErrorAction SilentlyContinue
@@ -79,11 +144,11 @@ function Start-TerminalWindow {
     if ($WindowsTerminalPath) {
         # Launch with Windows Terminal
         Write-Host "Using Windows Terminal for instance $InstanceId" -ForegroundColor Cyan
-        Start-Process "wt.exe" -ArgumentList "new-tab", "--title", "`"$Title`"", "powershell.exe", "-NoExit", "-Command", "& `"$ScriptPath`" -InstanceId $InstanceId"
+        Start-Process "wt.exe" -ArgumentList "new-tab", "--title", "`"$Title`"", "powershell.exe", "-NoExit", "-Command", "& `"$ScriptPath`" -InstanceId $InstanceId -ServerPort $ServerPort -HMRPort $HMRPort"
     } else {
         # Launch with regular PowerShell
         Write-Host "Using PowerShell for instance $InstanceId" -ForegroundColor Cyan
-        Start-Process "powershell.exe" -ArgumentList "-NoExit", "-Command", "& `"$ScriptPath`" -InstanceId $InstanceId"
+        Start-Process "powershell.exe" -ArgumentList "-NoExit", "-Command", "& `"$ScriptPath`" -InstanceId $InstanceId -ServerPort $ServerPort -HMRPort $HMRPort"
     }
 }
 
@@ -126,14 +191,18 @@ function Get-HostIP {
 $HostIP = Get-HostIP
 
 # Main script execution starts here
-Write-Host "Starting $NumberOfInstances Windows instances..." -ForegroundColor Green
+if ($IsTestMode) {
+    Write-Host "DRY RUN: Would start $NumberOfInstances Windows instances..." -ForegroundColor Yellow
+} else {
+    Write-Host "Starting $NumberOfInstances Windows instances..." -ForegroundColor Green
+}
 Write-Host "Sequential mode: $Sequential" -ForegroundColor Yellow
 Write-Host "Start services: $StartServices" -ForegroundColor Yellow
 Write-Host "Preserve existing processes: $PreserveExistingProcesses" -ForegroundColor Yellow
 Write-Host "Host IP address: $HostIP" -ForegroundColor Yellow
 
 # Start Docker Compose services if requested
-if ($StartServices) {
+if ($StartServices -and -not $IsTestMode) {
     Write-Host "Starting Docker Compose services (signaling server and CoTURN)..." -ForegroundColor Green
     
     # Check if docker-compose is installed
@@ -175,66 +244,114 @@ verbose
 }
 
 # Clean old build artifacts to prevent conflicts with renamed project
-Write-Host "Cleaning old build artifacts to prevent conflicts..." -ForegroundColor Green
+if ($IsTestMode) {
+    Write-Host "DRY RUN: Would clean old build artifacts to prevent conflicts..." -ForegroundColor Yellow
+} else {
+    Write-Host "Cleaning old build artifacts to prevent conflicts..." -ForegroundColor Green
+}
 $TauriAppPath = Join-Path $PSScriptRoot "..\apps\tauri"
 Push-Location $TauriAppPath
 
 # Clean Vite cache to prevent dependency errors
-Write-Host "Cleaning Vite cache to prevent dependency errors..." -ForegroundColor Cyan
-$ViteCachePath = Join-Path $TauriAppPath "node_modules\.vite"
-if (Test-Path $ViteCachePath) {
-    Remove-Item -Path $ViteCachePath -Recurse -Force
-    Write-Host "Vite cache cleaned." -ForegroundColor Green
+if ($IsTestMode) {
+    Write-Host "DRY RUN: Would clean Vite cache to prevent dependency errors..." -ForegroundColor Yellow
+    $ViteCachePath = Join-Path $TauriAppPath "node_modules\.vite"
+    if (Test-Path $ViteCachePath) {
+        Write-Host "DRY RUN: Would remove Vite cache at $ViteCachePath" -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "Cleaning Vite cache to prevent dependency errors..." -ForegroundColor Cyan
+    $ViteCachePath = Join-Path $TauriAppPath "node_modules\.vite"
+    if (Test-Path $ViteCachePath) {
+        Remove-Item -Path $ViteCachePath -Recurse -Force
+        Write-Host "Vite cache cleaned." -ForegroundColor Green
+    }
 }
 
 # Clean old Rust build artifacts (especially old rift.exe)
-Write-Host "Cleaning old Rust build artifacts..." -ForegroundColor Cyan
-$TargetPath = Join-Path $TauriAppPath "src-tauri\target"
-if (Test-Path $TargetPath) {
-    try {
-        # Try to remove the entire target directory
-        Remove-Item -Path $TargetPath -Recurse -Force
-        Write-Host "Old target directory cleaned successfully." -ForegroundColor Green
+if ($IsTestMode) {
+    Write-Host "DRY RUN: Would clean old Rust build artifacts..." -ForegroundColor Yellow
+    $TargetPath = Join-Path $TauriAppPath "src-tauri\target"
+    if (Test-Path $TargetPath) {
+        Write-Host "DRY RUN: Would remove target directory at $TargetPath" -ForegroundColor Yellow
     }
-    catch {
-        Write-Host "Warning: Could not fully clean target directory. Trying to remove specific files..." -ForegroundColor Yellow
-        # Try to remove specific problematic files
-        $DebugPath = Join-Path $TargetPath "debug"
-        if (Test-Path $DebugPath) {
-            Get-ChildItem -Path $DebugPath -Filter "rift*" -File | ForEach-Object {
-                try {
-                    Remove-Item -Path $_.FullName -Force
-                    Write-Host "Removed old file: $($_.Name)" -ForegroundColor Green
-                }
-                catch {
-                    Write-Host "Warning: Could not remove $($_.Name): $($_.Exception.Message)" -ForegroundColor Yellow
+} else {
+    Write-Host "Cleaning old Rust build artifacts..." -ForegroundColor Cyan
+    $TargetPath = Join-Path $TauriAppPath "src-tauri\target"
+    if (Test-Path $TargetPath) {
+        try {
+            # Try to remove the entire target directory
+            Remove-Item -Path $TargetPath -Recurse -Force
+            Write-Host "Old target directory cleaned successfully." -ForegroundColor Green
+        }
+        catch {
+            Write-Host "Warning: Could not fully clean target directory. Trying to remove specific files..." -ForegroundColor Yellow
+            # Try to remove specific problematic files
+            $DebugPath = Join-Path $TargetPath "debug"
+            if (Test-Path $DebugPath) {
+                Get-ChildItem -Path $DebugPath -Filter "rift*" -File | ForEach-Object {
+                    try {
+                        Remove-Item -Path $_.FullName -Force
+                        Write-Host "Removed old file: $($_.Name)" -ForegroundColor Green
+                    }
+                    catch {
+                        Write-Host "Warning: Could not remove $($_.Name): $($_.Exception.Message)" -ForegroundColor Yellow
+                    }
                 }
             }
         }
     }
 }
 
-Write-Host "Build artifact cleanup completed. Each instance will build in its own isolated directory." -ForegroundColor Green
+if ($IsTestMode) {
+    Write-Host "DRY RUN: Build artifact cleanup would be completed. Each instance would build in its own isolated directory." -ForegroundColor Yellow
+} else {
+    Write-Host "Build artifact cleanup completed. Each instance will build in its own isolated directory." -ForegroundColor Green
+}
 
 Pop-Location
 
 # Launch each instance
 for ($i = 1; $i -le $NumberOfInstances; $i++) {
     if ($Sequential) {
-        Write-Host "Launching instance $i directly (sequential mode)..." -ForegroundColor Yellow
+        if ($IsTestMode) {
+            Write-Host "DRY RUN: Would launch instance $i directly (sequential mode)..." -ForegroundColor Yellow
+        } else {
+            Write-Host "Launching instance $i directly (sequential mode)..." -ForegroundColor Yellow
+        }
         $ScriptPath = Join-Path $PSScriptRoot "Run-Windows-Instance.ps1"
-        & $ScriptPath -InstanceId $i
-        Write-Host "Instance $i completed. Moving to next instance..." -ForegroundColor Green
-    } else {
-        Write-Host "Launching instance $i in new terminal window..." -ForegroundColor Yellow
-        Start-TerminalWindow -InstanceId $i
         
-        # Add a short delay between instances to prevent resource contention
-        Write-Host "Waiting for 5 seconds before launching the next instance..." -ForegroundColor Cyan
-        Start-Sleep -Seconds 5
+        # Calculate ports for this instance
+        $Ports = Get-InstancePorts -InstanceId $i -NumberOfInstances $NumberOfInstances
+        $ServerPort = $Ports.ServerPort
+        $HMRPort = $Ports.HMRPort
+        
+        Write-Host "Instance $i will use ServerPort: $ServerPort, HMRPort: $HMRPort" -ForegroundColor Cyan
+        
+        if (-not $IsTestMode) {
+            & $ScriptPath -InstanceId $i -ServerPort $ServerPort -HMRPort $HMRPort
+            Write-Host "Instance $i completed. Moving to next instance..." -ForegroundColor Green
+        }
+    } else {
+        if ($IsTestMode) {
+            Write-Host "DRY RUN: Would launch instance $i in new terminal window..." -ForegroundColor Yellow
+        } else {
+            Write-Host "Launching instance $i in new terminal window..." -ForegroundColor Yellow
+            Start-TerminalWindow -InstanceId $i -NumberOfInstances $NumberOfInstances
+            
+            # Add a short delay between instances to prevent resource contention
+            Write-Host "Waiting for 5 seconds before launching the next instance..." -ForegroundColor Cyan
+            Start-Sleep -Seconds 5
+        }
     }
 }
 
-Write-Host "All $NumberOfInstances Windows instances have been launched." -ForegroundColor Green
-Write-Host "Each window runs an independent Tauri Windows instance." -ForegroundColor Yellow
-Write-Host "You can close individual windows to stop specific instances." -ForegroundColor Yellow
+if ($IsTestMode) {
+    Write-Host "DRY RUN: All $NumberOfInstances Windows instances would have been launched." -ForegroundColor Yellow
+    Write-Host "DRY RUN: Each window would run an independent Tauri Windows instance." -ForegroundColor Yellow
+    Write-Host "DRY RUN: You could close individual windows to stop specific instances." -ForegroundColor Yellow
+} else {
+    Write-Host "All $NumberOfInstances Windows instances have been launched." -ForegroundColor Green
+    Write-Host "Each window runs an independent Tauri Windows instance." -ForegroundColor Yellow
+    Write-Host "You can close individual windows to stop specific instances." -ForegroundColor Yellow
+}
