@@ -6,8 +6,7 @@
   "build": {
     "beforeDevCommand": "bun run dev",
     "beforeBuildCommand": "bun run build",
-    "frontendDist": "../build",
-    "devUrl": "http://0.0.0.0:1420"
+    "frontendDist": "../build"
   },
   "app": {
     "windows": [
