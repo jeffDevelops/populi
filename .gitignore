@@ -1,6 +1,7 @@
 .turbo
 node_modules
 .env
+.DS_STORE
 
 # Generated files
 gen/
