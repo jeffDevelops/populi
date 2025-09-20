@@ -22,10 +22,12 @@
     "windows:enable-dev-mode": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/enable-developer-mode.ps1",
     "macos:android:swarm": "./scripts/launch-swarm-android.sh",
     "macos:android:single": "./scripts/run-android-emulator.sh",
-    "macos:ios:swarm": "./scripts/launch-swarm-ios.sh",
-    "macos:ios:single": "./scripts/run-ios-simulator.sh"
+    "ios:swarm": "./scripts/ios-swarm.sh"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@sveltejs/kit": "^2.42.2",
+    "vite": "^7.1.6"
+  },
   "devDependencies": {
     "@types/node": "^24.3.1",
     "@typescript-eslint/eslint-plugin": "^8.0.0",

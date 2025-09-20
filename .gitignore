@@ -5,6 +5,7 @@ node_modules
 
 # Generated files
 gen/
+swarm/
 
 # Tauri config backup files created by multi-instance scripts
 *.backup*

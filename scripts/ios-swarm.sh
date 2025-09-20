@@ -1,0 +1,368 @@
+#!/bin/bash
+# Advanced iOS Simulator Swarm Script
+# This script launches multiple iOS simulator instances with configurable ports and locations
+
+# Default values
+NUM_INSTANCES=3
+CLIENT_PORT_START=1420
+COTURN_PORT=3478
+SKIP_BUILD=false
+DEFAULT_LAT=39.66753456235311
+DEFAULT_LON=-104.99328715234329
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --instances|--Instances)
+      NUM_INSTANCES="$2"
+      shift 2
+      ;;
+    --client-port-start|--Client-Port-Start)
+      CLIENT_PORT_START="$2"
+      shift 2
+      ;;
+    --coturn-port|--Coturn-Port)
+      COTURN_PORT="$2"
+      shift 2
+      ;;
+    --skip-build|--Skip-Build)
+      SKIP_BUILD=true
+      shift
+      ;;
+    *)
+      echo "Unknown option $1"
+      echo "Usage: $0 [--instances N] [--client-port-start PORT] [--coturn-port PORT] [--skip-build]"
+      exit 1
+      ;;
+  esac
+done
+
+PROJECT_ROOT=$(pwd)
+
+# Create swarm directory if it doesn't exist
+SWARM_DIR="$PROJECT_ROOT/swarm/ios"
+if [ -d "$SWARM_DIR" ]; then
+  echo "Directory '$SWARM_DIR' exists."
+else
+  echo "Directory '$SWARM_DIR' does not exist. Creating..."
+  mkdir -p "$SWARM_DIR"
+fi
+
+# Get absolute paths
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CLIENT_PROJECT_ROOT="$(dirname "$SCRIPT_DIR")/apps/tauri"
+
+# Get current machine's IP address
+IP_ADDRESS=$(ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | head -n 1)
+if [ -z "$IP_ADDRESS" ]; then
+  echo "Could not determine IP address"
+  exit 1
+fi
+
+# Create DEV_INSTANCE_PORTS array
+declare -a DEV_INSTANCE_PORTS
+for ((i=0; i<$NUM_INSTANCES; i++)); do
+  DEV_INSTANCE_PORTS[$i]=$((CLIENT_PORT_START + (i * 10)))
+done
+
+# Read location data from .env.base or use defaults
+declare -a LAT_ARRAY
+declare -a LON_ARRAY
+if [ -f "$CLIENT_PROJECT_ROOT/.env.base" ]; then
+  source "$CLIENT_PROJECT_ROOT/.env.base"
+  
+  # Set up location arrays dynamically for any number of instances
+  for ((i=0; i<$NUM_INSTANCES; i++)); do
+    # Use variable indirection to get the latitude and longitude for each instance
+    lat_var="INSTANCE_${i}_LATITUDE"
+    lon_var="INSTANCE_${i}_LONGITUDE"
+    
+    # Use parameter expansion to get the value or default
+    LAT_ARRAY[$i]=${!lat_var:-$DEFAULT_LAT}
+    LON_ARRAY[$i]=${!lon_var:-$DEFAULT_LON}
+  done
+  
+  for ((i=0; i<$NUM_INSTANCES; i++)); do
+    LAT_ARRAY[$i]=$DEFAULT_LAT
+    LON_ARRAY[$i]=$DEFAULT_LON
+  done
+fi
+
+# Wrangle simulators to pre-boot them in individual scripts
+SIMULATOR_LIST=$(xcrun simctl list devices available -j)
+
+# Replace your simulator selection with this deduplication logic:
+deduplicate_simulators() {
+    local unique_names=()
+    local unique_udids=()
+    local seen_names=()
+    
+    for ((i=0; i<${#SIMULATOR_NAMES_ARRAY[@]}; i++)); do
+        local name="${SIMULATOR_NAMES_ARRAY[$i]}"
+        local udid="${SIMULATOR_UDIDS_ARRAY[$i]}"
+        local already_seen=false
+        
+        # Check if we've already seen this device name
+        for seen in "${seen_names[@]}"; do
+            if [[ "$seen" == "$name" ]]; then
+                already_seen=true
+                break
+            fi
+        done
+        
+        # If this is the first time seeing this name, add it
+        if [[ "$already_seen" == false ]]; then
+            seen_names+=("$name")
+            unique_names+=("$name")
+            unique_udids+=("$udid")
+        fi
+    done
+    
+    # Replace the original arrays with deduplicated ones
+    SIMULATOR_NAMES_ARRAY=("${unique_names[@]}")
+    SIMULATOR_UDIDS_ARRAY=("${unique_udids[@]}")
+}
+
+# Call this after building your initial arrays but before selection:
+SIMULATOR_NAMES=$(echo "$SIMULATOR_LIST" | grep -o '"name" : "[^"]*"' | sed 's/"name" : "\(.*\)"/\1/')
+SIMULATOR_UDIDS=$(echo "$SIMULATOR_LIST" | grep -o '"udid" : "[^"]*"' | sed 's/"udid" : "\(.*\)"/\1/')
+
+# Build arrays as you do now...
+SIMULATOR_NAMES_ARRAY=()
+SIMULATOR_UDIDS_ARRAY=()
+OLDIFS="$IFS"
+IFS=$'\n'
+for name in $SIMULATOR_NAMES; do
+    SIMULATOR_NAMES_ARRAY+=("$name")
+done
+for udid in $SIMULATOR_UDIDS; do
+    SIMULATOR_UDIDS_ARRAY+=("$udid")
+done
+IFS="$OLDIFS"
+
+# Add deduplication here:
+deduplicate_simulators
+
+# Now proceed with your swarm selection:
+declare -a SWARM_SIMULATOR_NAMES
+declare -a SWARM_SIMULATOR_UDIDS
+for ((i=0; i<$NUM_INSTANCES; i++)); do
+    if [ $i -lt ${#SIMULATOR_NAMES_ARRAY[@]} ]; then
+        SWARM_SIMULATOR_NAMES[$i]="${SIMULATOR_NAMES_ARRAY[$i]}"
+        SWARM_SIMULATOR_UDIDS[$i]="${SIMULATOR_UDIDS_ARRAY[$i]}"
+    else
+        echo "Not enough unique simulators available for the swarm."
+        echo "Requested: $NUM_INSTANCES, Available unique: ${#SIMULATOR_NAMES_ARRAY[@]}"
+        exit 1
+    fi
+done
+
+# Create signaling hosts string (JSON array)
+SIGNALING_PORT=3000  # Default signaling server port
+SIGNALING_HOSTS="[\"$IP_ADDRESS:$SIGNALING_PORT\"]"
+
+echo "Script directory: $SCRIPT_DIR"
+echo "Project root: $PROJECT_ROOT"
+echo "Client project root: $CLIENT_PROJECT_ROOT"
+echo "Current machine IP address: $IP_ADDRESS"
+echo "Tauri dev instance ports: ${DEV_INSTANCE_PORTS[*]}"
+echo "Signaling hosts: $SIGNALING_HOSTS"
+echo "Selected simulators for swarm: ${SWARM_SIMULATOR_NAMES[*]}"
+echo "Geolocation latitudes: ${LAT_ARRAY[*]}"
+echo "Geolocation longitudes: ${LON_ARRAY[*]}"
+
+update_tauri_config() {
+  local instance_dir=$1
+  local port=$2
+  local instance_id=$3
+  local tauri_config="$instance_dir/src-tauri/tauri.conf.json"
+  
+  echo "Updating tauri.conf.json for instance with port $port"
+  
+  # Make sure the file exists
+  if [ ! -f "$tauri_config" ]; then
+    echo "Error: tauri.conf.json not found at $tauri_config"
+    return 1
+  fi
+  
+  # Update the devUrl in tauri.conf.json
+  sed -i.tmp "s|\"devUrl\": \"http://localhost:[0-9]*\"|\"devUrl\": \"http://localhost:$port\"|g" "$tauri_config"
+  rm -f "${tauri_config}.tmp"
+  
+  # Make sure the bundle identifier is set correctly
+  BUNDLE_ID="com.antarcticbloom.propopulo${instance_id}"
+  echo "Setting bundle identifier to $BUNDLE_ID"
+  sed -i.tmp "s|\"identifier\": \"[^\"]*\"|\"identifier\": \"$BUNDLE_ID\"|g" "$tauri_config"
+
+  # Make sure the productName is set correctly
+  PRODUCT_NAME="ProPopulo${instance_id}"
+  echo "Setting product name to $PRODUCT_NAME"
+  sed -i.tmp "s|\"productName\": \"[^\"]*\"|\"productName\": \"$PRODUCT_NAME\"|g" "$tauri_config"
+
+  rm -f "${tauri_config}.tmp"
+}
+
+# MAIN SWARM LOOP
+for ((i=0; i<$NUM_INSTANCES; i++)); do
+  echo "Processing instance $i..."
+
+  # Get the instance directory
+  INSTANCE_DIR="$SWARM_DIR/instance-$i"
+
+  echo "Copying ${CLIENT_PROJECT_ROOT}/ to ${INSTANCE_DIR}/..."
+  rsync -a \
+    --exclude='node_modules' \
+    --exclude='tauri/src-tauri/target' \
+    --exclude='tauri/src-tauri/gen' \
+    --exclude='.vite' \
+    --exclude='tauri/src-tauri/Cargo.lock' \
+    --exclude='bun.lockb' \
+    --exclude='.DS_Store' \
+    --exclude='*.log' \
+    --exclude='.env.local' \
+    "${CLIENT_PROJECT_ROOT}/" "${INSTANCE_DIR}/"
+
+    update_tauri_config "$INSTANCE_DIR" "${DEV_INSTANCE_PORTS[i]}" "$i"
+
+    # Create .env file for this instance
+    echo "Creating .env file for instance $i..."
+    cat > "$INSTANCE_DIR/.env" << EOF
+VITE_INSTANCE_ID=$i
+VITE_INSTANCE_DEV_SERVER_HOST=$IP_ADDRESS
+VITE_INSTANCE_DEV_SERVER_PORT=${DEV_INSTANCE_PORTS[i]}
+VITE_INSTANCE_DEV_HMR_PORT=$(( $(echo "${DEV_INSTANCE_PORTS[i]}" | bc) + 1 ))
+VITE_COTURN_HOST=$IP_ADDRESS
+VITE_COTURN_PORT=$COTURN_PORT
+VITE_SIGNALING_HOSTS=$SIGNALING_HOSTS
+VITE_LOCATION_LAT=${LAT_ARRAY[i]}
+VITE_LOCATION_LONG=${LON_ARRAY[i]}
+EOF
+
+    # Function to escape device name for command line
+    escape_device_name() {
+        local name="$1"
+        # Escape spaces and parentheses
+        echo "$name" | sed 's/ /\\ /g; s/(/\\(/g; s/)/\\)/g'
+    }
+
+    # Write the dev script for this instance
+    echo "Creating dev script for instance $i..."
+
+    simulator_name="${SWARM_SIMULATOR_NAMES[$i]}"
+    simulator_name_escaped="$(escape_device_name "$simulator_name")"
+    simulator_udid="${SWARM_SIMULATOR_UDIDS[$i]}"
+    lat="${LAT_ARRAY[$i]}"
+    lon="${LON_ARRAY[$i]}"
+    main_port="${DEV_INSTANCE_PORTS[$i]}"
+    hmr_port=$((main_port + 1))
+
+
+cat > "$INSTANCE_DIR/dev-script.sh" << EOF
+#!/bin/bash
+# This script was generated by advanced-swarm-ios.sh
+
+# Set a trap to ensure ports are freed if the script exits or is interrupted
+cleanup_port() {
+    echo "Cleaning up processes on ports $main_port and $hmr_port..."
+    
+    # Clean up main port
+    local pid=\$(lsof -ti:$main_port 2>/dev/null)
+    if [ -n "\$pid" ]; then
+        echo "Killing process \$pid on port $main_port"
+        kill -TERM "\$pid" 2>/dev/null || kill -KILL "\$pid" 2>/dev/null
+    else
+        echo "No process found on port $main_port"
+    fi
+    
+    # Clean up HMR port
+    local hmr_pid=\$(lsof -ti:$hmr_port 2>/dev/null)
+    if [ -n "\$hmr_pid" ]; then
+        echo "Killing process \$hmr_pid on HMR port $hmr_port"
+        kill -TERM "\$hmr_pid" 2>/dev/null || kill -KILL "\$hmr_pid" 2>/dev/null
+    else
+        echo "No process found on HMR port $hmr_port"
+    fi
+}
+
+trap cleanup_port EXIT INT TERM
+
+# Ensure variables were passed
+if [ -z "$simulator_name_escaped" ]; then
+  echo "Error: Could not find simulator with name $simulator_name"
+  exit 1
+fi
+
+if [ -z "$simulator_udid" ]; then
+  echo "Error: Could not find simulator with udid $simulator_udid"
+  exit 1
+fi
+
+# Function to wait for simulator with exponential backoff
+wait_for_simulator_ready() {
+    local udid="\$1"
+    local max_attempts=8
+    local attempt=1
+    local delay=1
+    
+    echo "Waiting for simulator to be ready..."
+    
+    while [ \$attempt -le \$max_attempts ]; do
+        if xcrun simctl list devices | grep "\$udid" | grep -q "Booted"; then
+            if xcrun simctl getenv "\$udid" HOME >/dev/null 2>&1; then
+                echo "Simulator is ready after \$attempt attempts"
+                return 0
+            fi
+        fi
+        
+        echo "Attempt \$attempt/\$max_attempts: Simulator not ready, waiting \${delay}s..."
+        sleep \$delay
+        delay=\$((delay * 2))
+        attempt=\$((attempt + 1))
+    done
+    
+    echo "Timeout: Simulator failed to become ready"
+    return 1
+}
+
+open -a Simulator
+
+# Boot simulator if needed
+device_line="\$(xcrun simctl list devices | grep "$simulator_udid")"
+DEVICE_STATE="\$(echo "\$device_line" | awk '{print \$NF}' | tr -d '()')"
+
+case "\$DEVICE_STATE" in
+    "Shutdown")
+        echo "Booting simulator..."
+        xcrun simctl boot "$simulator_udid"
+        ;;
+    "Booted")
+        echo "Simulator already booted"
+        ;;
+esac
+
+# Wait for simulator to be ready with exponential backoff
+if ! wait_for_simulator_ready "$simulator_udid"; then
+    echo "Failed to prepare simulator"
+    exit 1
+fi
+
+cd "$INSTANCE_DIR"
+bun install
+bun run tauri ios init
+
+# Set location for this simulator
+echo "Setting location for simulator to $lat, $lon"
+xcrun simctl location "$simulator_udid" set $lat,$lon
+
+# Run the project
+bun --env-file=.env run tauri ios dev \"$simulator_name_escaped\"
+EOF
+
+    chmod +x "$INSTANCE_DIR/dev-script.sh"
+
+    cd "$INSTANCE_DIR"
+
+    open -a Terminal "$INSTANCE_DIR/dev-script.sh" &
+done
+
+exit 0

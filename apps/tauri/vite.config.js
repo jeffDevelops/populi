@@ -1,16 +1,14 @@
-import { defineConfig } from "vite";
-import { sveltekit } from "@sveltejs/kit/vite";
+import { defineConfig } from 'vite'
+import { sveltekit } from '@sveltejs/kit/vite'
 
-const host = process.env.TAURI_DEV_HOST;
+const host = process.env.TAURI_DEV_HOST
 
 // Get port configuration from environment variables or use defaults
-const serverPort = parseInt(process.env.VITE_SERVER_PORT || "1420", 10);
-const hmrPort = parseInt(process.env.VITE_HMR_PORT || "1421", 10);
-const instanceId = process.env.VITE_INSTANCE_ID || "1";
-
-console.log(
-  `Starting Vite instance ${instanceId} on server port: ${serverPort}, HMR port: ${hmrPort}`
-);
+const serverPort = parseInt(
+  process.env.VITE_INSTANCE_DEV_SERVER_PORT || '1420',
+  10,
+)
+const hmrPort = parseInt(process.env.VITE_INSTANCE_DEV_HMR_PORT || '1421', 10)
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
@@ -24,21 +22,21 @@ export default defineConfig(async () => ({
   server: {
     port: serverPort,
     strictPort: true,
-    host: "0.0.0.0", // Always bind to all interfaces for multi-instance support
+    host: '0.0.0.0', // Always bind to all interfaces for multi-instance support
     hmr: host
       ? {
-          protocol: "ws",
+          protocol: 'ws',
           host,
           port: hmrPort,
         }
       : {
-          protocol: "ws",
-          host: "0.0.0.0", // Use 0.0.0.0 for Windows when no TAURI_DEV_HOST is set
+          protocol: 'ws',
+          host: '0.0.0.0', // Use 0.0.0.0 for Windows when no TAURI_DEV_HOST is set
           port: hmrPort,
         },
     watch: {
       // 3. tell Vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
+      ignored: ['**/src-tauri/**'],
     },
   },
-}));
+}))

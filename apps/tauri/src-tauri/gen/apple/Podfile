@@ -1,13 +1,13 @@
 # Uncomment the next line to define a global platform for your project
 
-target 'rift_iOS' do
+target 'propopulo_iOS' do
 platform :ios, '14.0'
-  # Pods for rift_iOS
+  # Pods for propopulo_iOS
 end
 
-target 'rift_macOS' do
+target 'propopulo_macOS' do
 platform :osx, '11.0'
-  # Pods for rift_macOS
+  # Pods for propopulo_macOS
 end
 
 # Delete the deployment target for iOS and macOS, causing it to be inherited from the Podfile
