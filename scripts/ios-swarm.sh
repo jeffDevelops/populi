@@ -1,5 +1,5 @@
 #!/bin/bash
-# Advanced iOS Simulator Swarm Script
+# iOS Simulator Swarm Script
 # This script launches multiple iOS simulator instances with configurable ports and locations
 
 # Default values
@@ -316,6 +316,19 @@ EOF
     main_port="${DEV_INSTANCE_PORTS[$i]}"
     hmr_port=$((main_port + 1))
 
+    # Get the desktop width and height
+    DESKTOP_WIDTH=$(osascript -e 'tell application "Finder" to get item 3 of (get bounds of window of desktop)')
+    DESKTOP_HEIGHT=$(osascript -e 'tell application "Finder" to get item 4 of (get bounds of window of desktop)')
+    DESKTOP_THIRD_WIDTH=$(($DESKTOP_WIDTH / 3))
+    DESKTOP_SIXTH_WIDTH=$(($DESKTOP_WIDTH / 6))
+
+
+    # Calculate the position for this instance's Terminal window
+    TERMINAL_HEIGHT=400
+    TERMINAL_X_POS=$(($i * $DESKTOP_THIRD_WIDTH))
+    TERMINAL_Y_POS=$(($DESKTOP_HEIGHT - $TERMINAL_HEIGHT))
+    TERMINAL_WIDTH=$(($DESKTOP_SIXTH_WIDTH))
+
 
 cat > "$INSTANCE_DIR/dev-script.sh" << EOF
 #!/bin/bash
@@ -385,8 +398,6 @@ wait_for_simulator_ready() {
     return 1
 }
 
-open -a Simulator
-
 # Boot simulator if needed
 device_line="\$(xcrun simctl list devices | grep "$simulator_udid")"
 DEVICE_STATE="\$(echo "\$device_line" | awk '{print \$NF}' | tr -d '()')"
@@ -423,10 +434,45 @@ EOF
 
     cd "$INSTANCE_DIR"
 
-    open -a Terminal "$INSTANCE_DIR/dev-script.sh" &
+    open -a Terminal "$INSTANCE_DIR/dev-script.sh"
+
+    osascript \
+      -e 'tell application "Terminal"' \
+      -e 'set position of front window to {'$TERMINAL_X_POS', '$TERMINAL_Y_POS'}' \
+      -e 'set size of front window to {'$TERMINAL_WIDTH', '$TERMINAL_HEIGHT'}' \
+      -e 'end tell'
+
+    # Wait for this instance's simulator window to appear, then position it
+    echo "Waiting for simulator window to appear for instance $i..."
+    
+    # Get the current count of simulator windows before this iteration
+    initial_count=$(osascript -e 'tell application "System Events" to tell process "Simulator" to count (every window whose name contains "iPhone" or name contains "iPad")' 2>/dev/null || echo "0")
+    
+    # Wait up to 30 seconds for a NEW simulator window to appear
+    for attempt in {1..30}; do
+        current_count=$(osascript -e 'tell application "System Events" to tell process "Simulator" to count (every window whose name contains "iPhone" or name contains "iPad")' 2>/dev/null || echo "0")
+        
+        if [ "$current_count" -gt "$initial_count" ]; then
+            echo "New simulator window appeared, positioning..."
+            # Position the frontmost simulator window (most recently created)
+            osascript \
+              -e 'tell application "System Events"' \
+              -e 'tell process "Simulator"' \
+              -e 'set simulator_windows to (every window whose name contains "iPhone" or name contains "iPad")' \
+              -e 'if (count of simulator_windows) > 0 then' \
+              -e 'set position of item 1 of simulator_windows to {'$TERMINAL_X_POS', 0}' \
+              -e 'end if' \
+              -e 'end tell' \
+              -e 'end tell'
+            break
+        fi
+        
+        sleep 1
+    done
+
 
     # Launching all simulators at once is typically too resource-intensive and usually results in one/some becoming unresponsive
-    sleep 2
+    sleep 8
 
 done
 
