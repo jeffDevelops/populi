@@ -110,23 +110,35 @@ tell application "System Events"
                                   repeat with simWin in windows
                                       try
                                           set simWinName to title of simWin
-                                          if simWinName contains deviceName then
-                                              log "Found matching simulator: " & simWinName
-                                              
-                                              set simPos to position of simWin
-                                              set simX to item 1 of simPos
-                                              
-                                              log "Positioning Web Inspector at X: " & simX
-                                              
-                                              -- Position the Web Inspector window
-                                              tell newInspectorWindow
-                                                  set position to {simX, 0}
-                                                  set size to {inspectorWidth, desktopHeight}
-                                              end tell
-                                              
-                                              log "Successfully positioned " & deviceName & " Web Inspector"
-                                              exit repeat
-                                          end if
+                                          
+                                            -- Extract device name from simulator window title
+                                            set oldDelimiters to AppleScript's text item delimiters
+                                            set AppleScript's text item delimiters to " –"
+                                            set simTitleParts to text items of simWinName
+                                            set AppleScript's text item delimiters to oldDelimiters
+
+                                            if (count of simTitleParts) >= 1 then
+                                                set simDeviceName to item 1 of simTitleParts
+                                                log "Comparing simulator device: '" & simDeviceName & "' with menu device: '" & deviceName & "'"
+                                                
+                                                if simDeviceName is deviceName then
+                                                    log "Found matching simulator: " & simWinName
+                                                    
+                                                    set simPos to position of simWin
+                                                    set simX to item 1 of simPos
+                                                    
+                                                    log "Positioning Web Inspector at X: " & simX
+                                                    
+                                                    -- Position the Web Inspector window
+                                                    tell newInspectorWindow
+                                                        set position to {simX, 0}
+                                                        set size to {inspectorWidth, desktopHeight}
+                                                    end tell
+                                                    
+                                                    log "Successfully positioned " & deviceName & " Web Inspector"
+                                                    exit repeat
+                                                end if
+                                            end if
                                       on error
                                           -- Skip simulator windows we can't access
                                       end try
