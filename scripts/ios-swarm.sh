@@ -271,6 +271,11 @@ done
 # Clean up temporary exclude file
 rm -f "$EXCLUDE_FILE"
 
+DESKTOP_WIDTH=$(osascript -e 'tell application "Finder" to get item 3 of (get bounds of window of desktop)')
+DESKTOP_HEIGHT=$(osascript -e 'tell application "Finder" to get item 4 of (get bounds of window of desktop)')
+DESKTOP_THIRD_WIDTH=$(($DESKTOP_WIDTH / 3))
+DESKTOP_SIXTH_WIDTH=$(($DESKTOP_WIDTH / 6))
+
 # MAIN SWARM LOOP
 for ((i=0; i<$NUM_INSTANCES; i++)); do
     INSTANCE_DIR="$SWARM_DIR/instance-$i"
@@ -315,13 +320,6 @@ EOF
     lon="${LON_ARRAY[$i]}"
     main_port="${DEV_INSTANCE_PORTS[$i]}"
     hmr_port=$((main_port + 1))
-
-    # Get the desktop width and height
-    DESKTOP_WIDTH=$(osascript -e 'tell application "Finder" to get item 3 of (get bounds of window of desktop)')
-    DESKTOP_HEIGHT=$(osascript -e 'tell application "Finder" to get item 4 of (get bounds of window of desktop)')
-    DESKTOP_THIRD_WIDTH=$(($DESKTOP_WIDTH / 3))
-    DESKTOP_SIXTH_WIDTH=$(($DESKTOP_WIDTH / 6))
-
 
     # Calculate the position for this instance's Terminal window
     TERMINAL_HEIGHT=400
@@ -469,17 +467,22 @@ EOF
         
         sleep 1
     done
-
-
+    
     # Launching all simulators at once is typically too resource-intensive and usually results in one/some becoming unresponsive
     sleep 8
 
 done
 
+open -an Safari
+osascript \
+-e 'tell application "Safari"' \
+-e 'make new document' \
+-e 'end tell'
+
+
+echo "All simulators launched. Setting up Safari dev tools windows..."
+
 cd "$PROJECT_ROOT"
-
-pwd
-
 echo "Starting src directory mirroring..."
 cd "$PROJECT_ROOT"
 
