@@ -10,6 +10,7 @@ interface SyncOptions {
   hostOS: 'macOS' | 'Windows'
   numInstances: number
   projectRoot: string
+  specificInstanceId?: number // Optional specific instance ID to sync
 }
 
 function parseArgs(): SyncOptions {
@@ -33,6 +34,9 @@ function parseArgs(): SyncOptions {
       case '--projectRoot':
         options.projectRoot = value
         break
+      case '--instanceId':
+        options.specificInstanceId = parseInt(value)
+        break
     }
   }
 
@@ -46,6 +50,7 @@ function parseArgs(): SyncOptions {
     hostOS: options.hostOS,
     numInstances: options.numInstances || 3,
     projectRoot: options.projectRoot || process.cwd(),
+    specificInstanceId: options.specificInstanceId,
   }
 }
 
@@ -71,8 +76,13 @@ async function syncToInstances(options: SyncOptions): Promise<void> {
     options.targetOS.toLowerCase(),
   )
 
+  // If a specific instance ID is provided, only sync that instance
+  const syncingSpecificInstance = options.specificInstanceId !== undefined
+  
   console.log(
-    `\n🔄 Syncing src/ changes to ${options.numInstances} instances...`,
+    syncingSpecificInstance
+      ? `\n🔄 Syncing src/ changes to instance-${options.specificInstanceId}...`
+      : `\n🔄 Syncing src/ changes to ${options.numInstances} instances...`
   )
   console.log(`Source: ${sourcePath}`)
   console.log(`Target: ${swarmDir}`)
@@ -93,7 +103,11 @@ async function syncToInstances(options: SyncOptions): Promise<void> {
     error?: string
   }>[] = []
 
-  for (let i = 0; i < options.numInstances; i++) {
+  // If a specific instance ID is provided, only process that instance
+  const startIdx = options.specificInstanceId !== undefined ? options.specificInstanceId : 0
+  const endIdx = options.specificInstanceId !== undefined ? options.specificInstanceId + 1 : options.numInstances
+  
+  for (let i = startIdx; i < endIdx; i++) {
     const instanceDir = join(swarmDir, `instance-${i}`)
     const instanceSrcDir = join(instanceDir, 'src')
 
@@ -223,7 +237,12 @@ function main() {
   console.log(`Source path: ${sourcePath}`)
   console.log(`Target OS: ${options.targetOS}`)
   console.log(`Host OS: ${options.hostOS}`)
-  console.log(`Instances: ${options.numInstances}`)
+  
+  if (options.specificInstanceId !== undefined) {
+    console.log(`Syncing specific instance: ${options.specificInstanceId}`)
+  } else {
+    console.log(`Instances: ${options.numInstances}`)
+  }
 
   if (!existsSync(sourcePath)) {
     console.error(`❌ Source directory doesn't exist: ${sourcePath}`)

@@ -1,3 +1,5 @@
+#!/bin/bash
+
 osascript <<EOF
 -- Open a new Safari window
 tell application "Safari"
