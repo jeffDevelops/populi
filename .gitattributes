@@ -1,0 +1,36 @@
+# Set default behavior to automatically normalize line endings
+* text=auto
+
+# Explicitly declare text files to be normalized
+*.js text
+*.ts text
+*.md text
+*.json text
+*.html text
+*.css text
+*.scss text
+
+# Declare files that will always have LF line endings on checkout
+*.sh text eol=lf
+
+# PowerShell scripts should use CRLF line endings on Windows
+*.ps1 text eol=crlf
+*.psm1 text eol=crlf
+*.psd1 text eol=crlf
+
+# Denote all files that are truly binary and should not be modified
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+
+# Mark shell scripts as executable
+scripts/*.sh text eol=lf executable
+
+# Mark PowerShell scripts as executable
+scripts/*.ps1 text eol=crlf executable

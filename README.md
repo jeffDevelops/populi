@@ -1,68 +1,62 @@
-# Populi - A metaframework for decentralized applicationsEX
-
-Populi is a metaframework for decentralized applications. It is not open source. Here's why:
-
-Traditional open source assumes good faith and shared values. Some actors, however, have fundamentally hostile interests we believe actively must be excluded. We are open to participation, but have mechanisms to exclude bad-faith actors who would destroy the system from within.
-
-## Table of Contents
-
-- [Populi - A metaframework for decentralized applicationsEX](#populi---a-metaframework-for-decentralized-applicationsex)
-  - [Table of Contents](#table-of-contents)
-  - [Philosophy: Big Tech's Open Source Playbook](#philosophy-big-techs-open-source-playbook)
-    - [Embrace, Extend, Extinguish](#embrace-extend-extinguish)
-      - [Embrace](#embrace)
-      - [Extend](#extend)
-      - [Extinguish](#extinguish)
-    - [Vendor Lock-in Patterns](#vendor-lock-in-patterns)
-    - [Other potential Big Tech attack vectors](#other-potential-big-tech-attack-vectors)
-      - [Infrastructure Capture](#infrastructure-capture)
-      - [Superior Engineering Resources](#superior-engineering-resources)
-  - [Development](#development)
-    - [Getting Started](#getting-started)
-    - [Script Naming Convention](#script-naming-convention)
-    - [Multi-Instance Testing](#swarm-testing)
-      - [Windows](#windows)
-      - [macOS](#macos)
-      - [Android](#android)
-        - [Initial Setup](#initial-setup)
-        - [Multi-Instance Launching](#swarm-launching)
-
-## Philosophy: Big Tech's Open Source Playbook
-
-### Embrace, Extend, Extinguish
-
-FAANG (Facebook, Amazon, Apple, Netflix, Google), or now MANGA (Meta / Microsoft, Amazon, Netflix, Google, Apple) have used open source to fragment networks and kill alternatives.
-
-Historical examples of this playbook include XMPP, RSS, and email. Google embraced and extended XMPP with Google Talk, then abandoned the project, fragmenting the network. Facebook and Twitter killed adoption of RSS by providing "better" proprietary alternatives. Email still uses open protocols but is increasingly controlled by Gmail/Outlook oligopoly.
-
-#### Embrace
-
-FAANG: "Sure! We support open standards! We'll build clients that work with your protocol. We'll even contribute to development and provide infrastructure, if you allow us to gain influence in governance."
-
-#### Extend
-
-FAANG then add proprietary features that only work with their clients. "We provide an enhanced experience when connecting to other \[FAANG\] users." This gradually makes the underlying protocol inferior and less interoperable with other protocols.
-
-#### Extinguish
-
-FAANG achieves a critical mass of users dependent on the proprietary experience. They break compatibility with implementations that use the "pure" open standard, and use colorful language like "legacy" to describe those implementations to portray them as inferior. They then force users to choose between losing the features they provide, or switch to the corporate version with the subscription plan.
-
-### Vendor Lock-in Patterns
-
-- Tech companies offer "free" services that are often critical dependencies, such as authentication, database hosting, etc., and build their business models off the idea that many of these free tier accounts will upgrade to paid accounts once usership grows. Sure, these companies need to make money, but the price gouge that comes with consumers' broaching the paid tier is often prohibitive to the point where the fledgling service either needs the resources to spend a development cycle on migrating to an in-house replacement, or be forced to shutter the service entirely.
-
-### Other potential Big Tech attack vectors
-
-#### Infrastructure Capture
-
-- In exchange for governance influence, FAANG could offer "free" high-performing signaling, STUN, and TURN servers that increasingly become dependencies.
-- Storage: FAANG could offer "free" cloud storage in OneDrive, Google Drive, iCloud, or S3, or bundle such services with their proprietary clients.
-
-#### Superior Engineering Resources
-
-- FAANG has access to some of the best engineers in the world, and can use their influence to recruit top talent. This gives them a significant advantage in development speed and quality.
+<div style="display: flex; justify-content: space-between;">
+  <img src="assets/MarketingRed.jpg" alt="Silly corporations, the internet is for people." width="33%"/>
+  <img src="assets/Diagram.jpg" alt="Diagram" width="33%"/>
+  <img src="assets/MarketingGreen.jpg" alt="Content made by people, for people.." width="33%"/>
+</div>
 
 ## Development
+
+### Swarm Development
+
+<div style="display: flex; justify-content: space-between;">
+  <img src="assets/Swarm1.png" alt="Silly corporations, the internet is for people." max-width="600"/>
+  <img src="assets/Swarm2.png" alt="Diagram" max-width="600"/>
+</div>
+
+Developing and testing peer to peer applications requires multiple instances of the application running on different devices. The figures above show six iOS Simulators on which are installed six isolated instances of the same application all synced from the same repository. This allows all devices to respond in watch mode while only having to make changes in
+one source file.
+
+### Common Commands (macOS)
+
+Run these from the root of the monorepo.
+
+```
+bun run ios:swarm:build [--instances <number>]
+```
+
+This runs a full build of your application's Rust binaries, starts a Vite JavaScript development server with HMR, and
+installs the app binary onto all devices in the swarm. Starting on a fresh desktop, the script will use AppleScript to arrange your swarm into thirds, moving onto new desktops as needed. Building the Rust binaries takes ~5 minutes with 6 devices in parallel.
+
+You'll only ever need to do this if you need to rebuild the Rust binaries, such as if you're using Tauri commands. Once you've done the full build and the app is installed, you can use
+
+```
+bun run ios:swarm
+```
+
+to merely perform swarm arrangement on your desktop, start the JavaScript dev servers, and sync your project with all of the isolated instances. This is a good command if you've closed out of all of your simulators, their associated terminal windows, and are resuming JavaScript development for the day.
+
+When you're working with a whole swarm of devices, It's incredibly tedious to go to Safari and find the Simulator you're working with, enable the Develop menu, and find the Simulator you're working with to inspect it. This script is a godsend:
+
+```
+bun run ios:dev-tools
+```
+
+To run this script, you'll need to enable the Develop menu in Safari. You can do this by going to Safari > Preferences > Advanced and checking the box next to "Show Develop menu in menu bar". Then when you run it, it'll use AppleScript toopen Web Inspector windows for all running simulators and arrange them on the screen behind all of your simulators.
+
+Inevitably, in your testing, the web view will crash. Depending on the bug it could crash one or all of the instances in your swarm. To restart the web view(s), you can use the following scripts:
+
+```
+bun run ios:restart-vite-swarm
+bun run ios:restart-vite <instance-number>
+```
+
+This will restart the Vite development server and sync your project with all of the isolated instances. It'll use AppleScript to place the terminal window for the Vite server in the same position as the simulator it's associated with.
+
+If you find yourself in a situation where an instance isn't receiving updates as you change code you can use this script. It's cross-platform, so you'll need to specify the target OS (the OS of your swarm) and the host OS (the OS where you're running the script).
+
+```
+bun run sync-swarm --targetOS <target-os> --hostOS <host-os>
+```
 
 ### Getting Started
 

@@ -1,6 +1,6 @@
-name: rift
+name: propopulo
 options:
-  bundleIdPrefix: com.antarcticbloom.rift
+  bundleIdPrefix: com.antarcticbloom.propopulo
   deploymentTarget:
     iOS: 14.0
 fileGroups: [../../src]
@@ -10,8 +10,8 @@ configs:
 settingGroups:
   app:
     base:
-      PRODUCT_NAME: rift
-      PRODUCT_BUNDLE_IDENTIFIER: com.antarcticbloom.rift
+      PRODUCT_NAME: propopulo
+      PRODUCT_BUNDLE_IDENTIFIER: com.antarcticbloom.propopulo
 targetTemplates:
   app:
     type: application
@@ -24,20 +24,20 @@ targetTemplates:
     settings:
       groups: [app]
 targets:
-  rift_iOS:
+  propopulo_iOS:
     type: application
     platform: iOS
     sources:
       - path: Sources
       - path: Assets.xcassets
       - path: Externals
-      - path: rift_iOS
+      - path: propopulo_iOS
       - path: assets
         buildPhase: resources
         type: folder
       - path: LaunchScreen.storyboard
     info:
-      path: rift_iOS/Info.plist
+      path: propopulo_iOS/Info.plist
       properties:
         LSRequiresIPhoneOS: true
         UILaunchStoryboardName: LaunchScreen
@@ -54,7 +54,7 @@ targets:
         CFBundleShortVersionString: 0.1.0
         CFBundleVersion: "0.1.0"
     entitlements:
-      path: rift_iOS/rift_iOS.entitlements
+      path: propopulo_iOS/propopulo_iOS.entitlements
     scheme:
       environmentVariables:
         RUST_BACKTRACE: full
