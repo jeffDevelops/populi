@@ -48,7 +48,7 @@ function parseArgs(): SyncOptions {
   return {
     targetOS: options.targetOS,
     hostOS: options.hostOS,
-    numInstances: options.numInstances || 3,
+    numInstances: options.numInstances || 0, // Will be counted from directory
     projectRoot: options.projectRoot || process.cwd(),
     specificInstanceId: options.specificInstanceId,
   }
@@ -79,10 +79,28 @@ async function syncToInstances(options: SyncOptions): Promise<void> {
   // If a specific instance ID is provided, only sync that instance
   const syncingSpecificInstance = options.specificInstanceId !== undefined
   
+  // Count actual instances if numInstances is not specified
+  let actualNumInstances = options.numInstances;
+  if (actualNumInstances === 0) {
+    try {
+      const fs = require('fs');
+      const instanceDirs = fs.readdirSync(swarmDir)
+        .filter(dir => dir.startsWith('instance-'))
+        .map(dir => parseInt(dir.replace('instance-', '')))
+        .filter(num => !isNaN(num));
+      
+      actualNumInstances = instanceDirs.length > 0 ? Math.max(...instanceDirs) + 1 : 0;
+      console.log(`📊 Detected ${actualNumInstances} instances in swarm directory`);
+    } catch (error) {
+      console.error(`❌ Error counting instances: ${error}`);
+      actualNumInstances = 3; // Fallback to default
+    }
+  }
+  
   console.log(
     syncingSpecificInstance
       ? `\n🔄 Syncing src/ changes to instance-${options.specificInstanceId}...`
-      : `\n🔄 Syncing src/ changes to ${options.numInstances} instances...`
+      : `\n🔄 Syncing src/ changes to ${actualNumInstances} instances...`
   )
   console.log(`Source: ${sourcePath}`)
   console.log(`Target: ${swarmDir}`)
@@ -105,7 +123,7 @@ async function syncToInstances(options: SyncOptions): Promise<void> {
 
   // If a specific instance ID is provided, only process that instance
   const startIdx = options.specificInstanceId !== undefined ? options.specificInstanceId : 0
-  const endIdx = options.specificInstanceId !== undefined ? options.specificInstanceId + 1 : options.numInstances
+  const endIdx = options.specificInstanceId !== undefined ? options.specificInstanceId + 1 : actualNumInstances
   
   for (let i = startIdx; i < endIdx; i++) {
     const instanceDir = join(swarmDir, `instance-${i}`)
@@ -240,8 +258,10 @@ function main() {
   
   if (options.specificInstanceId !== undefined) {
     console.log(`Syncing specific instance: ${options.specificInstanceId}`)
+  } else if (options.numInstances > 0) {
+    console.log(`Instances: ${options.numInstances} (specified via command line)`)
   } else {
-    console.log(`Instances: ${options.numInstances}`)
+    console.log(`Will auto-detect number of instances in swarm directory`)
   }
 
   if (!existsSync(sourcePath)) {

@@ -1,8 +1,9 @@
 <script lang="ts">
+  import { PUBLIC_INSTANCE_ID } from '$env/static/public'
 </script>
 
 <main class="container">
-  <h1>Instance</h1>
+  <h1>Instance {PUBLIC_INSTANCE_ID}</h1>
 </main>
 
 <style>
