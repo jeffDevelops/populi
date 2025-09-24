@@ -1,8 +1,22 @@
+# Pro Populo
+
+Pro Populo is a decentralized application metaframework, facilitating a community of like-minded
+developers to build better web experiences, where ads don't have to be the center of how such
+experiences are sustained.
+
 <div style="display: flex; justify-content: space-between;">
   <img src="assets/MarketingRed.jpg" alt="Silly corporations, the internet is for people." width="30%"/>
   <img src="assets/Diagram.jpg" alt="Diagram" width="30%"/>
   <img src="assets/MarketingGreen.jpg" alt="Content made by people, for people.." width="30%"/>
 </div>
+
+## A Shared Substrate For A Multitude of Applications
+Uptime is everything for P2P-powered applications. By using our metaframework, our ecosystem of applications all use the same shared substrate to facilitate content delivery, peer discovery, and peer-to-peer signaling. This way, Trey's social media scrolling can help furnish the signaling needed to connect Paige and Aliyah on a dating app actually designed to foster long-term relationships.
+
+While the centralized applications of our age pursue and exploit user engagement no matter the psychological, social, or political cost, we seek to turn that idea on its head: engagement becomes the fuel for a self-sustaining, ad-free network of community- vetted applications committed to utility or public benefit.
+
+## A Community Committed To Public Benefit
+We're not open-source. Traditional open source assumes good faith and shared values. Some actors, however, have fundamentally hostile interests we believe actively must be excluded. FAANG have used their Embrace, Extend, Extinguish playbook to commandeer open source projects by leveraging dev resources into governance, building proprietary products on those open standards, forcing smaller competitors out of the market, and vendor lock-in their users. A governance and trust layer is the heart of our shared infrastructure substrate, ensuring end-users that the stuff we build is ad-free and makes the world a better place.
 
 ## Development
 
