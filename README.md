@@ -1,7 +1,7 @@
 <div style="display: flex; justify-content: space-between;">
-  <img src="assets/MarketingRed.jpg" alt="Silly corporations, the internet is for people." width="33%"/>
-  <img src="assets/Diagram.jpg" alt="Diagram" width="33%"/>
-  <img src="assets/MarketingGreen.jpg" alt="Content made by people, for people.." width="33%"/>
+  <img src="assets/MarketingRed.jpg" alt="Silly corporations, the internet is for people." width="30%"/>
+  <img src="assets/Diagram.jpg" alt="Diagram" width="30%"/>
+  <img src="assets/MarketingGreen.jpg" alt="Content made by people, for people.." width="30%"/>
 </div>
 
 ## Development
@@ -41,7 +41,11 @@ When you're working with a whole swarm of devices, It's incredibly tedious to go
 bun run ios:dev-tools
 ```
 
-To run this script, you'll need to enable the Develop menu in Safari. You can do this by going to Safari > Preferences > Advanced and checking the box next to "Show Develop menu in menu bar". Then when you run it, it'll use AppleScript toopen Web Inspector windows for all running simulators and arrange them on the screen behind all of your simulators.
+To run this script, you'll need to enable the Develop menu in Safari. You can do this by going to Safari > Preferences > Advanced and checking the box next to "Show Develop menu in menu bar". Then when you run it, it'll use AppleScript to open Web Inspector windows for all running simulators and arrange them on the screen behind all of your simulators.
+
+<div style="display: flex; justify-content: space-between;">
+  <img src="assets/DevTools.png" alt="Dev Tools" width="100%"/>
+</div>
 
 Inevitably, in your testing, the web view will crash. Depending on the bug it could crash one or all of the instances in your swarm. To restart the web view(s), you can use the following scripts:
 
