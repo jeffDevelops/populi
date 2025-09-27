@@ -530,6 +530,9 @@ trap cleanup_port EXIT INT TERM
 echo "Installing dependencies for instance $i..."
 bun install
 
+# Check sveltekit code, especially generate environment variable types
+bun run check
+
 # Start Vite with TypeScript support
 echo "Starting Vite server for instance $i..."
 bun run vite --config vite.config.ts --port $((1420 + (i * 10))) --strictPort --clearScreen false

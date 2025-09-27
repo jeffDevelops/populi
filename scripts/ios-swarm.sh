@@ -160,6 +160,7 @@ done
 # Create signaling hosts string (JSON array)
 SIGNALING_PORT=3000  # Default signaling server port
 SIGNALING_HOSTS="[\"$IP_ADDRESS:$SIGNALING_PORT\"]"
+COTURN_HOSTS="[\"$IP_ADDRESS:$COTURN_PORT\"]"
 
 echo "Script directory: $SCRIPT_DIR"
 echo "Project root: $PROJECT_ROOT"
@@ -381,7 +382,7 @@ PUBLIC_INSTANCE_ID=$i
 PUBLIC_INSTANCE_DEV_SERVER_HOST=$IP_ADDRESS
 PUBLIC_INSTANCE_DEV_SERVER_PORT=${DEV_INSTANCE_PORTS[i]}
 PUBLIC_INSTANCE_DEV_HMR_PORT=$(( $(echo "${DEV_INSTANCE_PORTS[i]}" | bc) + 1 ))
-PUBLIC_COTURN_HOST=$IP_ADDRESS
+PUBLIC_COTURN_HOSTS=$COTURN_HOSTS
 PUBLIC_COTURN_PORT=$COTURN_PORT
 PUBLIC_SIGNALING_HOSTS=$SIGNALING_HOSTS
 PUBLIC_LOCATION_LAT=${LAT_ARRAY[i]}
@@ -530,6 +531,9 @@ remaining_instances=\$((TOTAL_INSTANCES - INSTANCE_NUM))
 stagger_delay=\$((remaining_instances * 5))
 echo "Waiting \${stagger_delay}s before launch (\${remaining_instances} instances remaining)"
 sleep \$stagger_delay
+
+# Check sveltekit code, especially generate environment variable types
+bun run check
 
 # Run the project
 bun --env-file=.env run tauri ios dev "$simulator_name_escaped"
