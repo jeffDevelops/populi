@@ -1,21 +1,20 @@
 <script lang="ts">
-  import { PUBLIC_INSTANCE_ID } from '$env/static/public'
+  import Stats from '../components/Stats.svelte'
+  import { ModeWatcher } from 'mode-watcher'
 </script>
 
 <main class="container">
-  <h1>Instance {PUBLIC_INSTANCE_ID}</h1>
+  <Stats />
 </main>
+
+<ModeWatcher />
 
 <style>
   :root {
-    font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+    font-family: Mona Sans;
     font-size: 16px;
     line-height: 24px;
     font-weight: 400;
-
-    color: #0f0f0f;
-    background-color: #f6f6f6;
-
     font-synthesis: none;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
@@ -25,21 +24,9 @@
 
   .container {
     margin: 0;
-    padding-top: 10vh;
     display: flex;
     flex-direction: column;
     justify-content: center;
     text-align: center;
-  }
-
-  h1 {
-    text-align: center;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root {
-      color: #f6f6f6;
-      background-color: #2f2f2f;
-    }
   }
 </style>
