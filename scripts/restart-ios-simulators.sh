@@ -5,6 +5,21 @@
 # 2. Reboot the simulators used in the swarm
 # 3. Restart Vite for all instances in the same loop
 
+# Parse command line arguments
+FORCE_CLEAN_INSTALL=false
+while [[ $# -gt 0 ]]; do
+  key="$1"
+  case $key in
+    --clean)
+      FORCE_CLEAN_INSTALL=true
+      shift
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
 PROJECT_ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SWARM_DIR="$PROJECT_ROOT/swarm/ios"
 
@@ -86,37 +101,46 @@ if [ "$SIMULATOR_INFO_FOUND" = false ]; then
   done
   IFS="$OLDIFS"
   
-  # Deduplicate simulators (same as in ios-swarm.sh)
-  declare -a UNIQUE_NAMES
-  declare -a UNIQUE_UDIDS
-  declare -a SEEN_NAMES
-  
-  for ((i=0; i<${#AVAILABLE_NAMES_ARRAY[@]}; i++)); do
-    local name="${AVAILABLE_NAMES_ARRAY[$i]}"
-    local udid="${AVAILABLE_UDIDS_ARRAY[$i]}"
-    local already_seen=false
+  # Function to deduplicate simulators
+  deduplicate_simulators() {
+    declare -a UNIQUE_NAMES
+    declare -a UNIQUE_UDIDS
+    declare -a SEEN_NAMES
     
-    # Check if we've already seen this device name
-    for seen in "${SEEN_NAMES[@]}"; do
-      if [[ "$seen" == "$name" ]]; then
-        already_seen=true
-        break
+    for ((i=0; i<${#AVAILABLE_NAMES_ARRAY[@]}; i++)); do
+      local name="${AVAILABLE_NAMES_ARRAY[$i]}"
+      local udid="${AVAILABLE_UDIDS_ARRAY[$i]}"
+      local already_seen=false
+      
+      # Check if we've already seen this device name
+      for seen in "${SEEN_NAMES[@]}"; do
+        if [[ "$seen" == "$name" ]]; then
+          already_seen=true
+          break
+        fi
+      done
+      
+      # If this is the first time seeing this name, add it
+      if [[ "$already_seen" == false ]]; then
+        SEEN_NAMES+=("$name")
+        UNIQUE_NAMES+=("$name")
+        UNIQUE_UDIDS+=("$udid")
       fi
     done
     
-    # If this is the first time seeing this name, add it
-    if [[ "$already_seen" == false ]]; then
-      SEEN_NAMES+=("$name")
-      UNIQUE_NAMES+=("$name")
-      UNIQUE_UDIDS+=("$udid")
-    fi
-  done
+    # Return the results
+    AVAILABLE_NAMES_ARRAY=("${UNIQUE_NAMES[@]}")
+    AVAILABLE_UDIDS_ARRAY=("${UNIQUE_UDIDS[@]}")
+  }
+  
+  # Call the function to deduplicate simulators
+  deduplicate_simulators
   
   # Use the first NUM_INSTANCES simulators
   for ((i=0; i<$NUM_INSTANCES; i++)); do
-    if [ $i -lt ${#UNIQUE_NAMES[@]} ]; then
-      SIMULATOR_NAMES[$i]="${UNIQUE_NAMES[$i]}"
-      SIMULATOR_UDIDS[$i]="${UNIQUE_UDIDS[$i]}"
+    if [ $i -lt ${#AVAILABLE_NAMES_ARRAY[@]} ]; then
+      SIMULATOR_NAMES[$i]="${AVAILABLE_NAMES_ARRAY[$i]}"
+      SIMULATOR_UDIDS[$i]="${AVAILABLE_UDIDS_ARRAY[$i]}"
       echo "Using simulator for instance $i: ${SIMULATOR_NAMES[$i]} (${SIMULATOR_UDIDS[$i]})"
     else
       echo "Error: Not enough unique simulators available"
@@ -220,6 +244,46 @@ tell application "System Events"
     end tell
 end tell
 EOF
+}
+
+# Function to ensure node_modules is properly set up
+ensure_node_modules() {
+    local instance_dir=$1
+    local source_dir="$PROJECT_ROOT/apps/tauri"
+    
+    echo "Ensuring node_modules is properly set up for $(basename "$instance_dir")..."
+    
+    # Check if there's a package.json file in the instance directory
+    if [ -f "$instance_dir/package.json" ]; then
+        # Force a clean install if we're having dependency issues
+        if [ "$FORCE_CLEAN_INSTALL" = "true" ]; then
+            echo "Forcing clean install of dependencies..."
+            rm -rf "$instance_dir/node_modules" 2>/dev/null
+            cd "$instance_dir"
+            bun install
+            return
+        fi
+        
+        # Check if node_modules exists in the instance directory
+        if [ ! -d "$instance_dir/node_modules" ] || [ -L "$instance_dir/node_modules" ]; then
+            # Remove any existing symlink
+            rm -rf "$instance_dir/node_modules" 2>/dev/null
+            
+            # Try to create a symlink to the original node_modules
+            if [ -d "$source_dir/node_modules" ]; then
+                echo "Creating symlink to original node_modules..."
+                ln -sf "$source_dir/node_modules" "$instance_dir/node_modules"
+            else
+                echo "Original node_modules not found, installing dependencies..."
+                cd "$instance_dir"
+                bun install
+            fi
+        else
+            echo "node_modules directory already exists"
+        fi
+    else
+        echo "No package.json found in $instance_dir"
+    fi
 }
 
 # Get screen dimensions for positioning
@@ -373,12 +437,14 @@ EOF
     
     # Create a Vite config file for this instance
     echo "Creating Vite config for instance $i..."
-    cat > "$INSTANCE_DIR/vite.config.js" << VITECONFIG
+    cat > "$INSTANCE_DIR/vite.config.ts" << VITECONFIG
 import { defineConfig } from 'vite';
+import type { PluginOption } from 'vite';
+import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 
 export default defineConfig({
-  plugins: [sveltekit()],
+  plugins: [sveltekit(), tailwindcss()] as PluginOption[],
   server: {
     port: $((1420 + (i * 10))),
     strictPort: true,
@@ -389,7 +455,39 @@ export default defineConfig({
   },
 });
 VITECONFIG
+    
+    # Remove any existing vite.config.js file to avoid conflicts
+    rm -f "$INSTANCE_DIR/vite.config.js" 2>/dev/null
 
+    # Return to the instance directory
+    cd "$INSTANCE_DIR"
+    
+    # Make sure .svelte-kit directory exists for TypeScript configuration
+    if [ -d "$PROJECT_ROOT/apps/tauri/.svelte-kit" ]; then
+      echo "Copying .svelte-kit directory for TypeScript support..."
+      mkdir -p "$INSTANCE_DIR/.svelte-kit"
+      cp -R "$PROJECT_ROOT/apps/tauri/.svelte-kit/tsconfig.json" "$INSTANCE_DIR/.svelte-kit/" 2>/dev/null || true
+      cp -R "$PROJECT_ROOT/apps/tauri/.svelte-kit/ambient.d.ts" "$INSTANCE_DIR/.svelte-kit/" 2>/dev/null || true
+    fi
+    
+    # Copy configuration files from the original project
+    echo "Copying configuration files from original project to instance $i..."
+    cp "$PROJECT_ROOT/apps/tauri/package.json" "$INSTANCE_DIR/package.json"
+    cp "$PROJECT_ROOT/apps/tauri/tsconfig.json" "$INSTANCE_DIR/tsconfig.json" 2>/dev/null || true
+    cp "$PROJECT_ROOT/apps/tauri/postcss.config.js" "$INSTANCE_DIR/postcss.config.js" 2>/dev/null || true
+    cp "$PROJECT_ROOT/apps/tauri/components.json" "$INSTANCE_DIR/components.json" 2>/dev/null || true
+    cp "$PROJECT_ROOT/apps/tauri/tailwind.config.ts" "$INSTANCE_DIR/tailwind.config.ts" 2>/dev/null || true
+    
+    # Copy the original svelte.config.js file
+    echo "Copying svelte.config.js file..."
+    cp "$PROJECT_ROOT/apps/tauri/svelte.config.js" "$INSTANCE_DIR/svelte.config.js"
+    
+    # Ensure node_modules is properly set up
+    ensure_node_modules "$INSTANCE_DIR"
+    
+    # Return to the instance directory
+    cd "$INSTANCE_DIR"
+    
     # Create a script to start Vite
     echo "Creating Vite startup script for instance $i..."
     cat > "$INSTANCE_DIR/start-vite.sh" << EOF
@@ -428,7 +526,13 @@ cleanup_port() {
 
 trap cleanup_port EXIT INT TERM
 
-bun run vite --port $((1420 + (i * 10))) --strictPort --clearScreen false
+# Install dependencies to ensure all packages are up to date
+echo "Installing dependencies for instance $i..."
+bun install
+
+# Start Vite with TypeScript support
+echo "Starting Vite server for instance $i..."
+bun run vite --config vite.config.ts --port $((1420 + (i * 10))) --strictPort --clearScreen false
 EOF
     chmod +x "$INSTANCE_DIR/start-vite.sh"
     

@@ -3,30 +3,12 @@
   import { ModeWatcher } from 'mode-watcher'
 </script>
 
-<main class="container">
+<main class="container mx-auto py-8 flex flex-col items-center justify-center min-h-screen">
   <Stats />
 </main>
 
 <ModeWatcher />
 
 <style>
-  :root {
-    font-family: Mona Sans;
-    font-size: 16px;
-    line-height: 24px;
-    font-weight: 400;
-    font-synthesis: none;
-    text-rendering: optimizeLegibility;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    -webkit-text-size-adjust: 100%;
-  }
-
-  .container {
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    text-align: center;
-  }
+  /* Global styles are now handled by Tailwind in app.css */
 </style>
