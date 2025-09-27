@@ -1,19 +1,28 @@
 import { defineConfig } from 'vite'
+import type { LogLevel, PluginOption } from 'vite'
+import tailwindcss from '@tailwindcss/vite'
 import { sveltekit } from '@sveltejs/kit/vite'
-import type { LogLevel } from 'vite'
+import path from 'path'
 
 const host = process.env.TAURI_DEV_HOST
 
 // Get port configuration from environment variables or use defaults
 const serverPort = parseInt(
-  process.env.VITE_INSTANCE_DEV_SERVER_PORT || '1420',
+  process.env.PUBLIC_INSTANCE_DEV_SERVER_PORT || '1420',
   10,
 )
-const hmrPort = parseInt(process.env.VITE_INSTANCE_DEV_HMR_PORT || '1421', 10)
+const hmrPort = parseInt(process.env.PUBLIC_INSTANCE_DEV_HMR_PORT || '1421', 10)
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [sveltekit()],
+  plugins: [sveltekit(), tailwindcss()] as PluginOption[],
+
+  resolve: {
+    alias: {
+      '@': path.resolve('./src'),
+      $lib: path.resolve('./src/lib'),
+    },
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
